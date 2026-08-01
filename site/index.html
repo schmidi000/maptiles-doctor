@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MapTiles Doctor — documentation</title>
+    <meta
+      name="description"
+      content="MapTiles Doctor validates the contract between a MapLibre/Mapbox style and the tile, glyph, sprite and vector-tile artifacts it ships against."
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1b1f24;
+        --muted: #5b6470;
+        --rule: #e3e7ec;
+        --accent: #0b6b5f;
+        --accent-soft: #e6f2f0;
+        --code-bg: #f5f7f9;
+        --broken: #b3261e;
+        --risky: #a35b00;
+        --info: #0b5fa4;
+        --ok: #1c7a45;
+        --sidebar: 16rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #12151a;
+          --fg: #e6e9ee;
+          --muted: #9aa4b1;
+          --rule: #262c35;
+          --accent: #5fd0bd;
+          --accent-soft: #14312d;
+          --code-bg: #1a1f26;
+          --broken: #ff8a80;
+          --risky: #ffc46b;
+          --info: #7db9ff;
+          --ok: #6fdc9b;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #12151a;
+        --fg: #e6e9ee;
+        --muted: #9aa4b1;
+        --rule: #262c35;
+        --accent: #5fd0bd;
+        --accent-soft: #14312d;
+        --code-bg: #1a1f26;
+        --broken: #ff8a80;
+        --risky: #ffc46b;
+        --info: #7db9ff;
+        --ok: #6fdc9b;
+      }
+      :root[data-theme="light"] {
+        --bg: #ffffff;
+        --fg: #1b1f24;
+        --muted: #5b6470;
+        --rule: #e3e7ec;
+        --accent: #0b6b5f;
+        --accent-soft: #e6f2f0;
+        --code-bg: #f5f7f9;
+        --broken: #b3261e;
+        --risky: #a35b00;
+        --info: #0b5fa4;
+        --ok: #1c7a45;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 1.5rem;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--accent);
+      }
+      code,
+      pre,
+      kbd {
+        font:
+          13px/1.55 ui-monospace,
+          SFMono-Regular,
+          "SF Mono",
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      code {
+        background: var(--code-bg);
+        padding: 0.12em 0.36em;
+        border-radius: 4px;
+      }
+      pre {
+        background: var(--code-bg);
+        padding: 0.9rem 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        border: 1px solid var(--rule);
+      }
+      pre code {
+        background: none;
+        padding: 0;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: var(--sidebar) minmax(0, 1fr);
+        gap: 3rem;
+        max-width: 74rem;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+      }
+      nav.toc {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        max-height: 100vh;
+        overflow-y: auto;
+        padding: 2rem 0;
+        font-size: 0.875rem;
+      }
+      nav.toc strong {
+        display: block;
+        font-size: 0.72rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 1.4rem 0 0.5rem;
+      }
+      nav.toc strong:first-child {
+        margin-top: 0;
+      }
+      nav.toc a {
+        display: block;
+        padding: 0.2rem 0;
+        color: var(--fg);
+        text-decoration: none;
+        border-left: 2px solid transparent;
+        padding-left: 0.7rem;
+      }
+      nav.toc a:hover {
+        color: var(--accent);
+        border-left-color: var(--accent);
+      }
+
+      main {
+        padding: 2rem 0 6rem;
+        min-width: 0;
+      }
+      header.hero {
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 1.75rem;
+        margin-bottom: 2.5rem;
+      }
+      header.hero h1 {
+        font-size: 2.1rem;
+        margin: 0 0 0.4rem;
+        letter-spacing: -0.02em;
+      }
+      header.hero p.lede {
+        font-size: 1.08rem;
+        color: var(--muted);
+        margin: 0 0 1rem;
+        max-width: 46rem;
+      }
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .badge {
+        font-size: 0.75rem;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 0.15rem 0.7rem;
+        color: var(--muted);
+      }
+
+      section {
+        margin-bottom: 3.25rem;
+        scroll-margin-top: 1.5rem;
+      }
+      h2 {
+        font-size: 1.4rem;
+        letter-spacing: -0.01em;
+        margin: 0 0 0.9rem;
+        padding-top: 0.4rem;
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin: 1.9rem 0 0.6rem;
+      }
+      p,
+      li {
+        max-width: 46rem;
+      }
+
+      .tablewrap {
+        overflow-x: auto;
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        margin: 1rem 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.6rem 0.85rem;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      th {
+        background: var(--code-bg);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .sev {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .sev-broken {
+        color: var(--broken);
+      }
+      .sev-risky {
+        color: var(--risky);
+      }
+      .sev-info {
+        color: var(--info);
+      }
+      .sev-ok {
+        color: var(--ok);
+      }
+
+      .callout {
+        border-left: 3px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 0.85rem 1.1rem;
+        border-radius: 0 8px 8px 0;
+        margin: 1.2rem 0;
+      }
+      .callout p {
+        margin: 0;
+      }
+      .callout p + p {
+        margin-top: 0.6rem;
+      }
+
+      footer {
+        border-top: 1px solid var(--rule);
+        padding: 1.5rem 0 0;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .theme-toggle {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        background: var(--bg);
+        color: var(--muted);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.78rem;
+        cursor: pointer;
+        z-index: 10;
+      }
+
+      @media (max-width: 62rem) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+        nav.toc {
+          position: static;
+          max-height: none;
+          border-bottom: 1px solid var(--rule);
+          padding-bottom: 1.25rem;
+          columns: 2;
+        }
+        nav.toc strong:first-child {
+          margin-top: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+
+    <div class="layout">
+      <nav class="toc">
+        <strong>Start</strong>
+        <a href="#overview">Overview</a>
+        <a href="#install">Install</a>
+        <a href="#cli">CLI</a>
+        <strong>How it decides</strong>
+        <a href="#evidence">Evidence ranking</a>
+        <a href="#checks">Check reference</a>
+        <a href="#sampling">Tile sampling</a>
+        <a href="#report">Report schema</a>
+        <strong>Integrations</strong>
+        <a href="#action">GitHub Action</a>
+        <a href="#vscode">VS Code extension</a>
+        <a href="#canaries">Visual canaries</a>
+        <strong>Project</strong>
+        <a href="#validation">Validation</a>
+        <a href="#packages">Packages</a>
+        <a href="#dependencies">Dependency policy</a>
+        <a href="#roadmap">Roadmap</a>
+      </nav>
+
+      <main>
+        <header class="hero">
+          <h1>MapTiles Doctor</h1>
+          <p class="lede">
+            Validates the contract between a MapLibre/Mapbox style and the PMTiles, MBTiles,
+            TileJSON, sprite, glyph and sampled vector-tile artifacts it actually ships against.
+          </p>
+          <div class="badges">
+            <span class="badge">Node 24 LTS</span>
+            <span class="badge">TypeScript</span>
+            <span class="badge">Apache-2.0</span>
+            <span class="badge">CLI · Action · VS Code</span>
+          </div>
+        </header>
+
+        <section id="overview">
+          <h2>Overview</h2>
+          <p>
+            A style can be valid JSON, pass every schema validator, and still ship a broken map. The
+            failure is cross-artifact: a <code>source-layer</code> was renamed in the tileset, an
+            icon left the sprite, a glyph range stopped being served, a property an expression reads
+            is no longer in the tiles. Nothing in the style is wrong on its own — it just no longer
+            agrees with what is deployed next to it.
+          </p>
+          <p>
+            Existing tools check one layer of that stack at a time: style syntax, or vector tile
+            validity, or PMTiles metadata. MapTiles Doctor checks the join between them.
+          </p>
+          <div class="callout">
+            <p>
+              <strong>This page is the single source of truth.</strong> Behaviour described here is
+              what the engine in <code>packages/core</code> does. Where the two disagree, the code
+              is the bug.
+            </p>
+          </div>
+        </section>
+
+        <section id="install">
+          <h2>Install</h2>
+          <p>
+            Node <code>24.18.1</code> or newer in the Node 24 LTS line, npm <code>11.11.0</code> or
+            newer.
+          </p>
+          <pre><code>npm install
+npm run check</code></pre>
+          <p>
+            <code>npm run check</code> runs audit, typecheck, lint, tests, build, package validation
+            and a staleness check on the committed Action bundle.
+          </p>
+        </section>
+
+        <section id="cli">
+          <h2>CLI</h2>
+          <pre><code>maptiles-doctor check &lt;style.json&gt; --source &lt;id=path-or-url&gt;</code></pre>
+
+          <h3>Output formats</h3>
+          <pre><code>maptiles-doctor check style.json --source basemap=world.pmtiles --format json
+maptiles-doctor check style.json --source basemap=tiles.mbtiles --format sarif
+maptiles-doctor check style.json --source basemap=tilejson.json --format github
+maptiles-doctor check style.json --format html --output report.html</code></pre>
+
+          <h3>Flags</h3>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th>Default</th>
+                  <th>Effect</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>--source &lt;id=path&gt;</code></td>
+                  <td>—</td>
+                  <td>
+                    Point a style source at a real archive or TileJSON. Repeatable. Overrides what
+                    the style declares.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>--format</code></td>
+                  <td><code>pretty</code></td>
+                  <td>
+                    <code>pretty</code>, <code>json</code>, <code>sarif</code>, <code>github</code>,
+                    <code>html</code>.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>--output &lt;path&gt;</code></td>
+                  <td>stdout</td>
+                  <td>Write the rendered report to a file.</td>
+                </tr>
+                <tr>
+                  <td><code>--fail-threshold</code></td>
+                  <td><code>broken</code></td>
+                  <td>Lowest severity that exits non-zero.</td>
+                </tr>
+                <tr>
+                  <td><code>--timeout-ms</code></td>
+                  <td><code>10000</code></td>
+                  <td>Per-request network timeout.</td>
+                </tr>
+                <tr>
+                  <td><code>--offline</code></td>
+                  <td>off</td>
+                  <td>
+                    Every remote read becomes an incomplete check. Makes a run deterministic and
+                    air-gapped.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>--no-sample-tiles</code></td>
+                  <td>sampling on</td>
+                  <td>Use declared metadata only; read no tiles.</td>
+                </tr>
+                <tr>
+                  <td><code>--max-sample-tiles</code></td>
+                  <td><code>3</code></td>
+                  <td>Tile addresses probed per source.</td>
+                </tr>
+                <tr>
+                  <td><code>--sample-at &lt;lon,lat&gt;</code></td>
+                  <td>built-in anchors</td>
+                  <td>Sample somewhere specific instead of the built-in populated anchors.</td>
+                </tr>
+                <tr>
+                  <td><code>--sampled-absence</code></td>
+                  <td><code>info</code></td>
+                  <td>
+                    Severity when only a partial sample says something is absent. <code>info</code>,
+                    <code>warning</code> or <code>risky</code> — never <code>broken</code>.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>--canary &lt;lon,lat,zoom[,id]&gt;</code></td>
+                  <td>—</td>
+                  <td>Render a view in a headless browser. Repeatable.</td>
+                </tr>
+                <tr>
+                  <td><code>--canaries &lt;file&gt;</code></td>
+                  <td>—</td>
+                  <td>JSON array of canary definitions.</td>
+                </tr>
+                <tr>
+                  <td><code>--screenshot-dir</code></td>
+                  <td>—</td>
+                  <td>Where canary screenshots and diffs are written.</td>
+                </tr>
+                <tr>
+                  <td><code>--baseline-dir</code></td>
+                  <td>—</td>
+                  <td>
+                    Directory of <code>&lt;canary-id&gt;.png</code> baselines to compare against.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>--max-diff-ratio</code></td>
+                  <td><code>0.005</code></td>
+                  <td>Fraction of differing pixels tolerated against a baseline.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Exit codes</h3>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>0</code></td>
+                  <td>Passed, or findings below the fail threshold.</td>
+                </tr>
+                <tr>
+                  <td><code>1</code></td>
+                  <td>Findings at or above the fail threshold.</td>
+                </tr>
+                <tr>
+                  <td><code>2</code></td>
+                  <td>Invalid invocation or runtime error.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            An <em>incomplete</em> run never exits non-zero on its own. It reports what could not be
+            verified rather than claiming a pass.
+          </p>
+        </section>
+
+        <section id="evidence">
+          <h2>Evidence ranking</h2>
+          <p>
+            Every finding carries a severity that reflects how strong the evidence behind it is.
+            This is the part of the design worth understanding, because it is what keeps the tool
+            usable on a real style.
+          </p>
+
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Evidence</th>
+                  <th>Severity</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Declared metadata proves the thing is absent</td>
+                  <td class="sev sev-broken">broken</td>
+                  <td>
+                    A tileset that publishes <code>vector_layers</code> and omits the source-layer
+                    is authoritative.
+                  </td>
+                </tr>
+                <tr>
+                  <td>A sampled feature produces a name the sprite does not hold</td>
+                  <td class="sev sev-risky">risky</td>
+                  <td>
+                    Positive evidence the icon is requested, but a partial sample cannot say how
+                    much of the map is affected.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Only an empty sample says it is absent</td>
+                  <td class="sev sev-info">info</td>
+                  <td>
+                    Three tiles will not contain a rare feature even in a healthy tileset. Raise
+                    with <code>--sampled-absence</code>.
+                  </td>
+                </tr>
+                <tr>
+                  <td>A sampled feature carries the property</td>
+                  <td class="sev sev-ok">not reported</td>
+                  <td>
+                    Observation outranks metadata that omits it; stale metadata is the common case.
+                  </td>
+                </tr>
+                <tr>
+                  <td>The artifact could not be read at all</td>
+                  <td class="sev">incomplete check</td>
+                  <td>A network failure is not a pass and not a finding. It is an admission.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout">
+            <p>
+              <strong>Absence from a sample can never be <code>broken</code>.</strong> A sample that
+              did not contain something is not proof that it is missing, so
+              <code>--sampled-absence broken</code> is rejected rather than honoured.
+            </p>
+          </div>
+
+          <h3>Overzoom is not a defect</h3>
+          <p>
+            Zoom is judged against the source <em>minzoom only</em>. MapLibre overzooms: above a
+            source's maxzoom it keeps rendering by scaling the deepest tiles it has, which is how a
+            maxzoom-14 basemap draws buildings at z18. A layer drawing above the source maxzoom is
+            normal construction and is never reported. MapLibre does not underzoom, so a layer whose
+            maxzoom falls below the source minzoom can never draw and is
+            <span class="sev sev-broken">broken</span>; one that merely starts below it is
+            <span class="sev sev-risky">risky</span>.
+          </p>
+        </section>
+
+        <section id="checks">
+          <h2>Check reference</h2>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>What it catches</th>
+                  <th>Severity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>style-spec</code></td>
+                  <td>MapLibre style specification errors.</td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+                <tr>
+                  <td><code>source</code></td>
+                  <td>
+                    A layer naming a source the style never declares; a source that cannot be read;
+                    an unused <code>--source</code> override.
+                  </td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+                <tr>
+                  <td><code>source-layer</code></td>
+                  <td>A <code>source-layer</code> the tileset does not contain.</td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+                <tr>
+                  <td><code>zoom</code></td>
+                  <td>A layer that cannot render because it ends below the source minzoom.</td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+                <tr>
+                  <td><code>glyph</code></td>
+                  <td>A font stack whose glyph range cannot be fetched.</td>
+                  <td class="sev">incomplete</td>
+                </tr>
+                <tr>
+                  <td><code>sprite</code></td>
+                  <td>A sprite index that cannot be read.</td>
+                  <td class="sev">incomplete</td>
+                </tr>
+                <tr>
+                  <td><code>icon</code></td>
+                  <td>
+                    An <code>icon-image</code> the sprite does not hold, static or built from
+                    feature data; a namespace prefix naming no declared sprite.
+                  </td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+                <tr>
+                  <td><code>expression-property</code></td>
+                  <td>A property an expression reads that the tiles do not carry.</td>
+                  <td class="sev sev-risky">risky</td>
+                </tr>
+                <tr>
+                  <td><code>tile-availability</code></td>
+                  <td>A source whose tiles cannot be read at any sampled address.</td>
+                  <td class="sev sev-risky">risky</td>
+                </tr>
+                <tr>
+                  <td><code>visual-canary</code></td>
+                  <td>What a real render actually drew.</td>
+                  <td class="sev sev-broken">broken</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Icons built from feature data</h3>
+          <p>
+            An <code>icon-image</code> written as
+            <code>["concat", "icon-", ["get", "class"]]</code>, or with the legacy
+            <code>"icon-{class}"</code> token syntax, has no name until a feature supplies one. Both
+            spellings are reduced to the same shape — a sequence of literals and property lookups —
+            then completed from the sampled tiles, so each name the tiles really produce is checked
+            against the sprite.
+          </p>
+          <p>
+            Property combinations are recorded <em>per feature</em>. Taking the distinct values of
+            two properties and crossing them would invent pairs that never occur together, which is
+            a false-positive generator. A template no sampled feature can complete is an incomplete
+            check, not a finding.
+          </p>
+
+          <h3>Multiple sprites</h3>
+          <p>
+            The array form of <code>sprite</code> declares several sprites and namespaces every icon
+            reference as <code>&lt;sprite-id&gt;:&lt;icon-name&gt;</code>. Every declared sprite is
+            read, the prefix selects which index to look in, and a prefix naming no declared sprite
+            is reported as its own finding rather than as a missing icon — they are different
+            mistakes with different fixes. Suggestions come back re-namespaced, ready to paste into
+            the style.
+          </p>
+        </section>
+
+        <section id="sampling">
+          <h2>Tile sampling</h2>
+          <p>
+            Sampling is on by default. The checker reads a few real tiles per source and treats the
+            layers and feature properties it observes as evidence, because declared metadata is what
+            drifts.
+          </p>
+          <p>
+            Tiles are sampled one populated anchor per zoom — London, New York, Tokyo and onwards —
+            rather than at the centre of the source's bounds. The centre of a world tileset is open
+            ocean, and a tile there has no roads, no POIs and no labels, which leaves every check
+            that needs a feature unable to conclude anything. A source whose bounds contain none of
+            the anchors falls back to its own centre, which keeps regional extracts working.
+          </p>
+          <pre><code>maptiles-doctor check style.json --sample-at 13.405,52.52   # sample over Berlin
+maptiles-doctor check style.json --max-sample-tiles 5
+maptiles-doctor check style.json --no-sample-tiles          # metadata only
+maptiles-doctor check style.json --offline                  # remote reads become incomplete</code></pre>
+          <p>
+            A source that declares <code>tiles</code> inline is read from the style object rather
+            than fetched: the only URL it offers is a <code>{z}/{x}/{y}</code> template, and
+            requesting that verbatim asks a tile server for a tile named <code>{z}</code>. Raster
+            sources are recognised and not parsed as vector tiles.
+          </p>
+        </section>
+
+        <section id="report">
+          <h2>Report schema</h2>
+          <p>
+            Schema v1 is a published consumer contract. The checker validates its own output against
+            it before returning, and the equivalent JSON Schema is printable:
+          </p>
+          <pre><code>maptiles-doctor schema --output maptiles-doctor-report.schema.json</code></pre>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Contents</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>schemaVersion</code></td>
+                  <td><code>"1.0"</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>status</code></td>
+                  <td><code>passed</code>, <code>failed</code> or <code>incomplete</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>generatedAt</code></td>
+                  <td>ISO timestamp.</td>
+                </tr>
+                <tr>
+                  <td><code>artifactHashes</code></td>
+                  <td>Hashes of the local files that were checked.</td>
+                </tr>
+                <tr>
+                  <td><code>checks</code></td>
+                  <td>
+                    Per-check status: <code>style-spec</code>, <code>tile-sample</code>,
+                    <code>source-layer</code>, <code>assets</code>, and
+                    <code>visual-canary</code> when configured.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>findings</code></td>
+                  <td>
+                    Severity, category, message, and the layer, source, source-layer, property,
+                    path, suggestion and evidence behind it.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>incompleteChecks</code></td>
+                  <td>What could not be verified, and why.</td>
+                </tr>
+                <tr>
+                  <td><code>summary</code></td>
+                  <td>Counts per severity plus <code>incomplete</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Severities are <code>broken</code>, <code>risky</code>, <code>warning</code>,
+            <code>info</code>. A check that never ran produces no entry at all rather than one that
+            passed.
+          </p>
+        </section>
+
+        <section id="action">
+          <h2>GitHub Action</h2>
+          <pre><code>- uses: schmidi000/maptiles-doctor/packages/action@main
+  with:
+    style: style.json
+    sources: |
+      basemap=world.pmtiles
+    fail-threshold: broken
+    report: maptiles-doctor-report.json</code></pre>
+          <p>
+            The Action runs a committed self-contained bundle, so a runner needs no install step.
+            Findings become workflow annotations and the report path is exposed as a step output.
+            Regenerate the bundle with <code>npm run bundle:action</code> after changing Action or
+            core sources; <code>npm run check</code> fails when it is stale.
+          </p>
+          <p>
+            MBTiles depends on the native <code>better-sqlite3</code> module, which cannot be
+            bundled. Inside the Action an MBTiles source reports an incomplete check rather than
+            passing silently — use PMTiles, TileJSON or a tile directory in CI.
+          </p>
+        </section>
+
+        <section id="vscode">
+          <h2>VS Code extension</h2>
+          <p>
+            The extension runs the same engine against the buffer in the editor, so an unsaved edit
+            is checked as typed. Styles are checked on open and on save, and diagnostics land on the
+            offending node — the layer's <code>source-layer</code>, a zoom bound, an
+            <code>icon-image</code>, or the <code>sources</code> entry that could not be read.
+          </p>
+          <p>
+            <code>broken</code> maps to Error, <code>risky</code> and <code>warning</code> to
+            Warning, and <code>info</code> plus every incomplete check to Information, so a network
+            failure can never read as a pass. Two commands are contributed:
+            <em>Run MapTiles Doctor</em> and <em>Open Report</em>.
+          </p>
+          <pre><code>npm run package:vsix</code></pre>
+        </section>
+
+        <section id="canaries">
+          <h2>Visual canaries</h2>
+          <p>
+            Deterministic checks read metadata and tiles. A canary renders the style with MapLibre
+            GL in headless Chromium and reports what the map actually drew: rendered feature counts,
+            requests that failed, MapLibre errors, and baseline pixel diffs.
+          </p>
+          <pre><code>maptiles-doctor check style.json \
+  --canary 13.405,52.52,14,berlin \
+  --screenshot-dir canaries \
+  --baseline-dir canaries/baseline</code></pre>
+          <p>
+            Rendered evidence is ranked the same way sampled evidence is. An HTTP error status is an
+            artifact answering "no" and is <span class="sev sev-broken">broken</span>. A request
+            that never completed proves nothing, so it is incomplete <em>and</em> suppresses every
+            finding that reads what was drawn, because a blocked canary renders an empty map too. A
+            MapLibre error event or an empty render is <span class="sev sev-risky">risky</span>, and
+            a layer named in <code>expectLayers</code> that drew nothing is
+            <span class="sev sev-broken">broken</span>.
+          </p>
+          <p>
+            A missing baseline is <span class="sev sev-info">info</span>; drift above
+            <code>--max-diff-ratio</code> is <span class="sev sev-risky">risky</span> and writes a
+            diff PNG. Determinism comes from a fixed device pixel ratio,
+            <code>fadeDuration: 0</code>, a non-interactive map, and waiting for the map's
+            <code>idle</code> event.
+          </p>
+          <p>
+            Canaries are off unless one is configured, and need two optional peers. Without them the
+            run reports an incomplete check rather than a pass:
+          </p>
+          <pre><code>npm install playwright maplibre-gl
+npx playwright install chromium</code></pre>
+        </section>
+
+        <section id="validation">
+          <h2>Validation</h2>
+          <p>
+            Fixtures prove the checker does what it was written to do. They cannot prove that a
+            <code>broken</code> finding corresponds to a map that renders wrong, because the same
+            process authored the check and the thing it checks. Two harnesses close that gap.
+            Neither is part of <code>npm run check</code>: both depend on third-party uptime, and a
+            gate that is red for reasons outside the repo teaches everyone to ignore it.
+          </p>
+
+          <h3>Real-world corpus</h3>
+          <pre><code>npm run validate:real</code></pre>
+          <p>
+            Runs the built CLI against production styles from four independent providers across
+            three tile schemas. Every finding is either a real contract break shipping in production
+            or a false positive in the checker, and separating those is the point — the
+            false-positive rate is what decides whether the tool is usable.
+          </p>
+
+          <h3>Seeded failures</h3>
+          <pre><code>npm run validate:seed</code></pre>
+          <p>
+            Seeds ten known contract breaks into a real style, one per check, and counts what the
+            checker notices. Detection is measured as a diff against the unmutated baseline, so a
+            style that already has findings cannot score full marks for noticing nothing. A mutation
+            that cannot be expressed against a style is excluded from the denominator and named in
+            the output rather than silently padding the rate.
+          </p>
+          <div class="callout">
+            <p>
+              <strong>Release gate:</strong> the seeded prototype must catch at least 8 of 10
+              intentional contract failures before public launch.
+            </p>
+          </div>
+        </section>
+
+        <section id="packages">
+          <h2>Packages</h2>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Package</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>@maptiles-doctor/core</code></td>
+                  <td>Style/tile contract engine. All contract logic lives here.</td>
+                </tr>
+                <tr>
+                  <td><code>maptiles-doctor</code></td>
+                  <td>CLI. Parses flags and calls the engine.</td>
+                </tr>
+                <tr>
+                  <td><code>@maptiles-doctor/report</code></td>
+                  <td>Static HTML and SARIF renderer.</td>
+                </tr>
+                <tr>
+                  <td><code>@maptiles-doctor/action</code></td>
+                  <td>GitHub Action wrapper.</td>
+                </tr>
+                <tr>
+                  <td><code>maptiles-doctor-vscode</code></td>
+                  <td>VS Code extension.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The Action and the extension are wrappers around the same engine. Native modules stay
+            out of the Action bundle and are loaded lazily in core, so a missing binding degrades to
+            an incomplete check rather than a crash.
+          </p>
+        </section>
+
+        <section id="dependencies">
+          <h2>Dependency policy</h2>
+          <ul>
+            <li>Use the newest stable patched versions available at the time of work.</li>
+            <li>Pin exact versions.</li>
+            <li>Run <code>npm audit</code> after dependency changes.</li>
+            <li>Do not introduce unresolved high or critical CVEs without explicit approval.</li>
+            <li>
+              Prefer upgrading a parent package over adding an override for a transitive finding.
+            </li>
+          </ul>
+          <p>
+            "CVE-free" means "no known current audit findings", not a guarantee against undisclosed
+            vulnerabilities.
+          </p>
+        </section>
+
+        <section id="roadmap">
+          <h2>Roadmap</h2>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Phase</th>
+                  <th>Scope</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1. Foundation</td>
+                  <td>Workspace, tooling, CI.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>2. Core engine</td>
+                  <td>Style parsing, PMTiles/MBTiles/TileJSON readers, expression traversal.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>3. Deterministic checks</td>
+                  <td>Sources, source-layers, zoom, glyphs, sprites, icons, sampled properties.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>4. CLI and reports</td>
+                  <td>JSON, pretty, SARIF, GitHub annotations, HTML.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>5. GitHub Action</td>
+                  <td>Bundled wrapper, annotations, report output.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>6. VS Code extension</td>
+                  <td>Buffer diagnostics, commands, report view.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>7. Visual canaries</td>
+                  <td>Headless rendering, feature counts, baseline diffs.</td>
+                  <td class="sev sev-ok">done</td>
+                </tr>
+                <tr>
+                  <td>8. Hosted tier</td>
+                  <td>Report history, baselines, GitHub App, billing.</td>
+                  <td>gated</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The hosted tier is deliberately gated on evidence of repeat CLI and CI usage. The free
+            CLI is the product until there is reason to believe someone will pay for history of it.
+          </p>
+          <p>
+            Publishing <code>@maptiles-doctor/core</code> and the CLI to npm is the next step:
+            <code>npx maptiles-doctor</code> is the documented entry point and is not yet possible.
+          </p>
+        </section>
+
+        <footer>
+          <p>
+            MapTiles Doctor — Apache-2.0. Planned public domain
+            <code>maptiles-doctor.com</code>, registration to be verified before launch.
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var button = document.getElementById("theme-toggle");
+        var stored = null;
+        try {
+          stored = localStorage.getItem("mtd-theme");
+        } catch (error) {
+          stored = null;
+        }
+        if (stored === "dark" || stored === "light") {
+          root.setAttribute("data-theme", stored);
+        }
+        button.addEventListener("click", function () {
+          var current =
+            root.getAttribute("data-theme") ||
+            (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          var next = current === "dark" ? "light" : "dark";
+          root.setAttribute("data-theme", next);
+          try {
+            localStorage.setItem("mtd-theme", next);
+          } catch (error) {
+            /* storage unavailable; the toggle still works for this page view */
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -52,8 +52,9 @@ MBTiles both still need real targets.
 
 ## Seeded failures
 
-`docs/implementation.md` sets a release gate of "seeded prototype catches at
-least 8 of 10 intentional contract failures". `validation/seed.mjs` measures it:
+The documented release gate is "seeded prototype catches at least 8 of 10
+intentional contract failures" (see the Validation section of the documentation
+site in `site/`). `validation/seed.mjs` measures it:
 
 ```bash
 npm run validate:seed                                # openfreemap-liberty
