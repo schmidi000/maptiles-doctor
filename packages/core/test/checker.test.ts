@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { checkStyleContract } from "../src/index.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -453,6 +453,27 @@ describe("tile sampling", () => {
 
     expect(report.findings[0]?.evidence).toEqual({ attempted: ["0/0/0"] });
   });
+
+  // A sample that read nothing counted as usable because nothing threw, so
+  // `tile-sample: passed` appeared beside a `no-sampled-tiles` finding on the
+  // very same source.
+  it("does not pass the tile-sample check on a sample that read nothing", async () => {
+    const report = await checkStyleContract({ stylePath: fixture("empty-tiles") });
+
+    expect(report.findings.some((item) => item.id === "source.basemap.no-sampled-tiles")).toBe(
+      true
+    );
+    expect(report.checks.find((check) => check.id === "tile-sample")?.status).toBe("incomplete");
+  });
+
+  it("still passes the tile-sample check when tiles really were read", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("simple-style"),
+      sources: [{ id: "openmaptiles", location: tilejson }]
+    });
+
+    expect(report.checks.find((check) => check.id === "tile-sample")?.status).toBe("passed");
+  });
 });
 
 describe("offline runs", () => {
@@ -482,5 +503,120 @@ describe("offline runs", () => {
     expect(report.findings.map((finding) => finding.category)).toEqual(
       expect.arrayContaining(["source-layer", "icon"])
     );
+  });
+});
+
+// `node:path.dirname` was applied to a style location whether it was a path or
+// a URL, and `resolve` then turned every relative reference in a remote style
+// into a local filesystem path. The artifacts were never requested at all.
+describe("a remote style with relative references", () => {
+  const requested: string[] = [];
+  let origin = "";
+
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    requested.push(url.pathname);
+
+    if (url.pathname === "/styles/basemap/style.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          version: 8,
+          sprite: "../../sprite",
+          glyphs: "../../fonts/{fontstack}/{range}.pbf",
+          sources: { basemap: { type: "vector", url: "./tilejson.json" } },
+          layers: [
+            {
+              id: "poi-labels",
+              type: "symbol",
+              source: "basemap",
+              "source-layer": "poi",
+              layout: {
+                "text-field": ["get", "name"],
+                "text-font": ["Noto Sans Regular"],
+                "icon-image": "cafe"
+              }
+            }
+          ]
+        })
+      );
+      return;
+    }
+
+    if (url.pathname === "/styles/basemap/tilejson.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          tilejson: "3.0.0",
+          minzoom: 0,
+          maxzoom: 14,
+          // Relative to the TileJSON, and its braces must survive resolution.
+          tiles: ["./tiles/{z}/{x}/{y}.mvt"],
+          vector_layers: [{ id: "poi", fields: { name: "String" }, minzoom: 0, maxzoom: 14 }]
+        })
+      );
+      return;
+    }
+
+    if (url.pathname === "/sprite.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ cafe: { x: 0, y: 0, width: 1, height: 1, pixelRatio: 1 } }));
+      return;
+    }
+
+    if (url.pathname === "/fonts/Noto%20Sans%20Regular/0-255.pbf") {
+      response.writeHead(200, { "content-type": "application/x-protobuf" });
+      response.end(Buffer.from([0x0a, 0x00]));
+      return;
+    }
+
+    response.writeHead(404).end();
+  });
+
+  beforeAll(async () => {
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  async function checkRemote() {
+    requested.length = 0;
+    const report = await checkStyleContract({
+      stylePath: `${origin}/styles/basemap/style.json`,
+      timeoutMs: 5_000
+    });
+    return report;
+  }
+
+  it("requests the source the style's relative URL names", async () => {
+    await checkRemote();
+
+    expect(requested).toContain("/styles/basemap/tilejson.json");
+  });
+
+  it("resolves relative sprite and glyph references above the style's directory", async () => {
+    await checkRemote();
+
+    expect(requested).toContain("/sprite.json");
+    expect(requested).toContain("/fonts/Noto%20Sans%20Regular/0-255.pbf");
+  });
+
+  it("reads the source contract instead of reporting it unreadable", async () => {
+    const report = await checkRemote();
+
+    expect(report.incompleteChecks.map((check) => check.id)).not.toContain(
+      "source.basemap.read-failed"
+    );
+    expect(report.findings.filter((finding) => finding.category === "source-layer")).toEqual([]);
+  });
+
+  it("keeps a tile template's placeholders unencoded when resolving it", async () => {
+    await checkRemote();
+
+    expect(requested.some((path) => path.includes("%7B"))).toBe(false);
+    expect(requested).toContain("/styles/basemap/tiles/0/0/0.mvt");
   });
 });

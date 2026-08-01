@@ -1,13 +1,42 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { request } from "undici";
 
-export function resolveLocation(location: string, baseDir = process.cwd()): string {
+export function resolveLocation(location: string, base = process.cwd()): string {
   if (isHttpUrl(location)) {
     return location;
   }
-  return isAbsolute(location) ? location : resolve(baseDir, location);
+  // A remote style's references are URL-relative, not filesystem-relative.
+  // `node:path` would turn `./tilejson.json` declared under
+  // `https://host/styles/style.json` into a path inside the working directory,
+  // and the artifact it names would never be requested at all.
+  if (isHttpUrl(base)) {
+    return resolveAgainstUrl(location, base);
+  }
+  return isAbsolute(location) ? location : resolve(base, location);
+}
+
+/**
+ * The base a relative reference inside `location` resolves against: the parent
+ * directory of a path, and the parent URL of a remote artifact. `node:path`
+ * cannot do the second — `dirname` collapses `https://` to `https:/`.
+ */
+export function locationDir(location: string): string {
+  if (!isHttpUrl(location)) {
+    return dirname(location);
+  }
+  const url = new URL(location);
+  url.hash = "";
+  url.search = "";
+  url.pathname = url.pathname.replace(/[^/]*$/, "");
+  return url.toString();
+}
+
+function resolveAgainstUrl(reference: string, base: string): string {
+  // `new URL` percent-encodes the braces of a `{z}/{x}/{y}` template, which no
+  // tile server substitutes, so they are restored verbatim.
+  return new URL(reference, base).toString().replace(/%7B/g, "{").replace(/%7D/g, "}");
 }
 
 export function isHttpUrl(location: string): boolean {

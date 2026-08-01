@@ -22,18 +22,24 @@ fail CI today, and all four render correctly in production.
 
 ## Progress
 
-| Target                | Original | After bug 1 | After bug 2 | After bug 3 | After sampling |
-| --------------------- | -------- | ----------- | ----------- | ----------- | -------------- |
-| openfreemap-liberty   | 110      | 7           | 7           | 5           | 63             |
-| maplibre-demotiles    | 6        | 0           | 0           | 0           | 0              |
-| versatiles-colorful   | 110      | 110         | 1           | 0           | 0              |
-| stadia-alidade-smooth | 43       | 2           | 2           | 0           | 0              |
-| **Total**             | **269**  | **119**     | **10**      | **5**       | **63**         |
+| Target                | Original | After bug 1 | After bug 2 | After bug 3 | After sampling | After filters |
+| --------------------- | -------- | ----------- | ----------- | ----------- | -------------- | ------------- |
+| openfreemap-liberty   | 110      | 7           | 7           | 5           | 63             | 22            |
+| maplibre-demotiles    | 6        | 0           | 0           | 0           | 0              | 0             |
+| versatiles-colorful   | 110      | 110         | 1           | 0           | 0              | 15            |
+| stadia-alidade-smooth | 43       | 2           | 2           | 0           | 0              | 0             |
+| **Total**             | **269**  | **119**     | **10**      | **5**       | **63**         | **37**        |
 
-**No false positives remain.** Of the 63, 62 are real defects in OpenFreeMap
-Liberty that the checker could not see until it sampled somewhere with features
-in it, and 1 is a correct `expression-property/info`. See "The first real
-findings" below.
+Of Liberty's 22, 21 are real defects that the checker could not see until it
+sampled somewhere with features in it, and 1 is a correct
+`expression-property/info`. Versatiles' 15 are `info`, reclassified from `risky`
+when sampled absence was ranked as weak evidence; the column counts findings at
+every severity.
+
+The "After sampling" column claimed no false positives remained. Forty-one of
+Liberty's 63 were false positives: layer filters were never evaluated, so names
+no feature reaching the layer could produce were checked against the sprite
+anyway. See "The other 41 were false positives" below.
 
 Every style ends `incomplete` rather than `passed`, which is the honest answer:
 stadia has 55 incomplete checks and the others 1 each, recording a 404 raster
@@ -245,8 +251,9 @@ that did not contain something is not proof that it is missing.
 
 What did **not** change:
 
-- Liberty's 62 findings stay `risky`. They rest on a sampled feature _producing_
-  a name the sprite lacks, which is positive evidence, not absence.
+- Liberty's icon findings stay `risky`. They rest on a sampled feature
+  _producing_ a name the sprite lacks, which is positive evidence, not absence.
+  (62 at the time; 21 after layer filters were evaluated — see below.)
 - A property that metadata lists fields for and omits stays `risky`. Metadata
   saying "these are the fields" is evidence; an empty sample is not.
 
@@ -254,6 +261,10 @@ What did **not** change:
 | ------------------- | ---------------- | --------- |
 | versatiles-colorful | 15 risky         | 15 info   |
 | openfreemap-liberty | 62 risky, 1 info | unchanged |
+
+<!-- Liberty's row is what this change did at the time; layer-filter evaluation
+     later took the 62 to 21. -->
+
 
 Seeded detection is unchanged at 9/9 and 7/7: severity does not affect whether a
 break is noticed, only how loudly it is reported.
@@ -290,33 +301,65 @@ branch's labels. Constraining it took 425 back to 62.
 
 ## The first real findings
 
-The 62 that remain are **not** false positives. Verified against the live
-OpenFreeMap sprite index, which holds 264 entries:
-
-- The style builds road shields with `["concat", "road_", ["get", "ref_length"]]`.
-  The sprite ships `road_1` through `road_6`. The sampled tiles carry
-  `ref_length` values of 7 and 11, so `road_7` and `road_11` are requested and do
-  not exist — those shields render blank.
-- Fourteen POI classes reaching the `["get", "class"]` default branch have no
-  icon: `office`, `atm`, `gate`, `bollard`, `recycling`, `toll_booth`,
-  `bicycle_parking`, `sports_centre`, `swimming_pool`, and others. Those POIs
-  render with no icon at all.
+Twenty-one of the 62 are real. Verified against the live OpenFreeMap sprite
+index, which holds 264 entries: POI classes reaching the `["get", "class"]`
+default branch that the sprite has no icon for — `office`, `atm`, `gate`,
+`bollard`, `recycling`, `toll_booth`, `bicycle_parking`, `sports_centre`,
+`swimming_pool`, and others. Those POIs render with no icon at all.
 
 This is the failure this product exists to catch, found in a style shipping in
 production, by a check that could not have found anything a day ago. It is also
 why the severity is `risky` rather than `broken`: a three-tile sample proves
 those values occur somewhere, not how much of the map they affect.
 
-The same 14 names repeat across `poi_r20`, `poi_r7`, and `poi_r1`, which are the
-same expression at three zoom tiers. Accurate, since each layer really is
-affected, but a per-style summary would read better than 42 rows.
+### The other 41 were false positives — FIXED
+
+This section previously claimed all 62 were real. Forty-one were not, and the
+claim was wrong for one reason: candidate names were built from every feature in
+the source-layer, and a layer's `filter` was never consulted. See
+`docs/bug_analysis.md`.
+
+- **Six road-shield findings, none reachable.** All three shield layers filter
+  `["<=", ["get", "ref_length"], 6]`, so the sampled `ref_length` values of 7 and
+  11 are exactly the ones the style refuses to draw — `road_7` and `road_11` are
+  never requested. Two of those layers additionally filter `network` to
+  `us-interstate`/`us-highway`/`us-state`, while the reported names come from
+  features whose `network` is `road`, so they were excluded twice over. The
+  earlier reading of this — "the sprite ships `road_1` through `road_6`, so 7 and
+  11 render blank" — mistook the style's own guard for the bug.
+- **Fourteen `poi_transit` findings, none reachable.** That layer filters `class`
+  to `airport`, `bus`, and `rail`; every name reported against it was one of the
+  other classes in the source-layer.
+- **Twenty-one duplicates across the rank tiers.** `poi_r1`, `poi_r7`, and
+  `poi_r20` partition on `rank`, which sampling did not retain, so the same 14
+  names were reported against all three. With `rank` retained and the filters
+  evaluated they come out 14 / 6 / 1, because a class only appears in the tiers
+  its features' ranks fall into.
+
+The checker now evaluates each layer's filter against the sampled feature that
+produced a name, and refuses to guess: a filter needing real geometry or feature
+state makes the check incomplete rather than reported either way.
+
+| Layer set             | Before | After |
+| --------------------- | ------ | ----- |
+| poi_r20 / poi_r7 / poi_r1 | 14 / 14 / 14 | 14 / 6 / 1 |
+| poi_transit           | 14     | 0     |
+| three shield layers   | 2 each | 0     |
+
+Retention is now budgeted per candidate name rather than across all combinations.
+A flat cap of 200 was fine until filter inputs joined the sample: crossing `class`
+and `subclass` with `rank` overran it and dropped whole class values, which reads
+as "every icon resolves". A source-layer that still exceeds the budget reports an
+incomplete check, because a bound that is not reported is indistinguishable from
+a clean result.
 
 ## Recommended order
 
 1. ~~Bug 1 (150 findings, trivial fix, fires on every style).~~ Done.
 2. ~~Bug 2 (112 findings, contained to sprite resolution).~~ Done.
 3. ~~Bug 3 (5 findings, but the design question behind it is the real work).~~ Done.
-4. ~~Re-run, then triage what survives.~~ Done: no false positives left.
+4. ~~Re-run, then triage what survives.~~ Done, then redone: the triage missed
+   that layer filters were never evaluated. 41 of the 62 were false positives.
 5. ~~Improve where tiles are sampled, so data-driven checks have features to read.~~ Done.
 6. ~~The seeded-failure harness for the 8-of-10 release gate.~~ Done: 9 of 9 on
    liberty, 5 of 7 on versatiles.

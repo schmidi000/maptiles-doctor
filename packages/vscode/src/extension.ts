@@ -10,8 +10,24 @@ import {
 import { renderHtmlReport } from "@maptiles-doctor/report";
 import { indexStyle, locateFinding, locateIncompleteCheck, type TextSpan } from "./locate.js";
 
-/** Last report per document, so "Open Report" does not have to re-run a check. */
-const reports = new Map<string, DoctorReport>();
+/**
+ * Last report per document, so "Open Report" does not have to re-run a check.
+ * Keyed with the document version the report was produced from: a report about
+ * text the buffer no longer holds is not a cache hit, it is a wrong answer.
+ */
+const reports = new Map<string, { version: number; report: DoctorReport }>();
+
+/**
+ * Newest check started per document. A check reads the network, so an older,
+ * slower one can finish after a newer one and overwrite it with a stale result.
+ * Only the newest generation is allowed to publish.
+ */
+const generations = new Map<string, number>();
+
+function cachedReport(document: vscode.TextDocument): DoctorReport | undefined {
+  const entry = reports.get(document.uri.toString());
+  return entry && entry.version === document.version ? entry.report : undefined;
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("maptiles-doctor");
@@ -32,8 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!document) {
         return;
       }
-      const report =
-        reports.get(document.uri.toString()) ?? (await runCheck(document, diagnostics));
+      const report = cachedReport(document) ?? (await runCheck(document, diagnostics));
       if (report) {
         showReport(document, report);
       }
@@ -50,6 +65,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       reports.delete(document.uri.toString());
+      generations.delete(document.uri.toString());
       diagnostics.delete(document.uri);
     }),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
@@ -71,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
   reports.clear();
+  generations.clear();
 }
 
 /** Returns the active style document, warning the user when there is none. */
@@ -109,6 +126,12 @@ async function checkQuietly(
   diagnostics: vscode.DiagnosticCollection
 ): Promise<void> {
   if (!isStyleDocument(document)) {
+    // An edit can take a buffer out of style shape — a deleted `layers` key
+    // mid-typing. Leaving the last run's diagnostics on screen would keep
+    // reporting on a document that no longer exists.
+    reports.delete(document.uri.toString());
+    generations.delete(document.uri.toString());
+    diagnostics.delete(document.uri);
     return;
   }
   await runCheck(document, diagnostics);
@@ -118,8 +141,17 @@ async function runCheck(
   document: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection
 ): Promise<DoctorReport | undefined> {
+  const key = document.uri.toString();
   const text = document.getText();
+  const version = document.version;
   const config = settings(document);
+
+  const generation = (generations.get(key) ?? 0) + 1;
+  generations.set(key, generation);
+  // Open, save, and configuration changes each start a check, so several can be
+  // in flight at once. Anything but the newest is discarded on completion
+  // rather than allowed to overwrite a fresher result.
+  const superseded = (): boolean => generations.get(key) !== generation;
 
   let report: DoctorReport;
   try {
@@ -135,7 +167,10 @@ async function runCheck(
       timeoutMs: config.timeoutMs
     });
   } catch (error) {
-    reports.delete(document.uri.toString());
+    if (superseded()) {
+      return undefined;
+    }
+    reports.delete(key);
     diagnostics.set(document.uri, [
       documentDiagnostic(
         document,
@@ -146,7 +181,10 @@ async function runCheck(
     return undefined;
   }
 
-  reports.set(document.uri.toString(), report);
+  if (superseded()) {
+    return undefined;
+  }
+  reports.set(key, { version, report });
   diagnostics.set(document.uri, toDiagnostics(document, text, report));
   return report;
 }

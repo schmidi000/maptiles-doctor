@@ -6,6 +6,9 @@ export declare const mbtilesFixture: string;
 export declare const unlabeledPmtilesFixture: string;
 export declare const tileDirectory: string;
 export declare const directoryTiles: { z: number; x: number; y: number }[];
+export declare function encodeTileFrom(
+  layers: { name: string; features: { properties: Record<string, string | number | boolean> }[] }[]
+): Buffer;
 export declare function buildBinaryFixtures(): Promise<{
   pmtilesFixture: string;
   mbtilesFixture: string;

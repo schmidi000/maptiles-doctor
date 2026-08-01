@@ -183,8 +183,18 @@ async function buildMbtiles(target) {
 // Minimal Mapbox Vector Tile writer (vector_tile.proto): Tile.layers = 3,
 // Layer{name=1, features=2, keys=3, values=4, extent=5, version=15}.
 function encodeTile() {
+  return encodeTileFrom(sampleLayers);
+}
+
+/**
+ * Encodes arbitrary layers as an MVT. Exported so a test can build a tile with
+ * shapes the shared fixtures do not carry — a source-layer crowded enough to
+ * exercise the sampler's retention budget — without perturbing every fixture
+ * that reads the standard one.
+ */
+export function encodeTileFrom(layers) {
   const writer = new PbfWriter();
-  for (const layer of sampleLayers) {
+  for (const layer of layers) {
     writer.writeMessage(3, writeLayer, layer);
   }
   return Buffer.from(writer.finish());

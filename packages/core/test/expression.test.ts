@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { collectStyleUsage, iconTemplateProperties, renderIconName } from "../src/expression.js";
+import {
+  collectStyleUsage,
+  filterInputs,
+  iconTemplateProperties,
+  renderIconName
+} from "../src/expression.js";
 
 describe("collectStyleUsage", () => {
   it("collects static icon names from strings, image expressions, and match branches", () => {
@@ -220,6 +225,52 @@ describe("collectStyleUsage", () => {
     ]);
   });
 
+  // The fallback treated every string in an unhandled expression as a name,
+  // index 0 included, so a valid style asked the glyph endpoint for a font
+  // called `coalesce` and came back incomplete.
+  it("does not mistake an expression operator for a font stack", () => {
+    const usage = collectStyleUsage({
+      layers: [
+        {
+          id: "a",
+          layout: {
+            "text-font": ["coalesce", ["get", "font"], ["literal", ["Noto Sans Regular"]]]
+          }
+        }
+      ]
+    });
+
+    expect([...usage.fontStacks]).toEqual(["Noto Sans Regular"]);
+  });
+
+  it("keeps every name of a bare font-stack array, which has no operator", () => {
+    const usage = collectStyleUsage({
+      layers: [{ id: "a", layout: { "text-font": ["Noto Sans Regular", "Arial Unicode MS"] } }]
+    });
+
+    expect([...usage.fontStacks].sort()).toEqual(["Arial Unicode MS", "Noto Sans Regular"]);
+  });
+
+  it("reads only the output branches of a decision expression", () => {
+    const usage = collectStyleUsage({
+      layers: [
+        {
+          id: "a",
+          layout: {
+            "text-font": [
+              "case",
+              ["==", ["get", "class"], "major"],
+              ["literal", ["Bold Font Regular"]],
+              ["literal", ["Plain Font Regular"]]
+            ]
+          }
+        }
+      ]
+    });
+
+    expect([...usage.fontStacks].sort()).toEqual(["Bold Font Regular", "Plain Font Regular"]);
+  });
+
   it("collects properties per layer from filters, layout, and nested paint expressions", () => {
     const usage = collectStyleUsage({
       layers: [
@@ -247,5 +298,46 @@ describe("collectStyleUsage", () => {
     expect(usage.iconImages.size).toBe(0);
     expect(usage.fontStacks.size).toBe(0);
     expect(usage.properties.size).toBe(0);
+  });
+});
+
+// The properties a filter reads decide what tile sampling has to retain, and
+// whether a filter can be answered from a sampled feature at all.
+describe("filterInputs", () => {
+  it("reads the properties of an expression filter", () => {
+    const { properties, evaluable } = filterInputs([
+      "all",
+      ["<=", ["get", "ref_length"], 6],
+      ["match", ["get", "network"], ["us-interstate"], true, false]
+    ]);
+
+    expect([...properties].sort()).toEqual(["network", "ref_length"]);
+    expect(evaluable).toBe(true);
+  });
+
+  it("reads the bare property name of a legacy filter", () => {
+    const { properties, evaluable } = filterInputs(["all", ["==", "class", "airport"], ["has", "rank"]]);
+
+    expect([...properties].sort()).toEqual(["class", "rank"]);
+    expect(evaluable).toBe(true);
+  });
+
+  it("needs nothing from a filter that only tests geometry type", () => {
+    const { properties, evaluable } = filterInputs(["==", ["geometry-type"], "Polygon"]);
+
+    expect([...properties]).toEqual([]);
+    expect(evaluable).toBe(true);
+  });
+
+  it("refuses a filter that cannot be answered from a sampled feature", () => {
+    expect(filterInputs(["within", { type: "Polygon", coordinates: [] }]).evaluable).toBe(false);
+    expect(filterInputs(["==", ["feature-state", "hover"], true]).evaluable).toBe(false);
+  });
+
+  it("treats an absent filter as admitting everything", () => {
+    const { properties, evaluable } = filterInputs(undefined);
+
+    expect([...properties]).toEqual([]);
+    expect(evaluable).toBe(true);
   });
 });

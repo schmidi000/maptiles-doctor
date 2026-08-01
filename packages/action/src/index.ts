@@ -1,11 +1,16 @@
 import { writeFile } from "node:fs/promises";
 import * as core from "@actions/core";
-import { checkStyleContract, type DoctorSourceInput, type Severity } from "@maptiles-doctor/core";
+import {
+  checkStyleContract,
+  severityRank,
+  type DoctorSourceInput,
+  type Severity
+} from "@maptiles-doctor/core";
 
 export async function runAction(): Promise<void> {
   const style = core.getInput("style", { required: true });
   const sources = parseSources(core.getInput("sources"));
-  const failThreshold = (core.getInput("fail-threshold") || "broken") as Severity;
+  const failThreshold = parseSeverity(core.getInput("fail-threshold"));
   const reportPath = core.getInput("report") || "maptiles-doctor-report.json";
 
   const report = await checkStyleContract({
@@ -32,12 +37,34 @@ export async function runAction(): Promise<void> {
   }
 
   if (report.status === "failed") {
-    core.setFailed(`MapTiles Doctor found ${report.summary.broken} broken contract issue(s).`);
+    // Counting `broken` regardless of the threshold announced "found 0 broken
+    // contract issue(s)" on a job that failed on risky findings.
+    const failing = report.findings.filter(
+      (finding) => severityRank[finding.severity] >= severityRank[failThreshold]
+    ).length;
+    core.setFailed(
+      `MapTiles Doctor found ${failing} contract issue(s) at or above ${failThreshold}.`
+    );
   }
 }
 
 function isTrue(value: string): boolean {
   return value.trim().toLowerCase() === "true";
+}
+
+/**
+ * An unrecognized threshold used to be cast through unchecked. Every severity
+ * comparison against it comes out false, so `fail-threshold: brokn` silently
+ * turned the whole gate off and the job passed with a report full of findings.
+ */
+function parseSeverity(value: string): Severity {
+  const normalized = value.trim() || "broken";
+  if (Object.hasOwn(severityRank, normalized)) {
+    return normalized as Severity;
+  }
+  throw new Error(
+    `Invalid fail-threshold "${value}". Expected one of: ${Object.keys(severityRank).join(", ")}.`
+  );
 }
 
 function parseSources(value: string): DoctorSourceInput[] {

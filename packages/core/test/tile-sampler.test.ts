@@ -1,5 +1,7 @@
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readSourceContract } from "../src/source-reader.js";
 import { sampleAddresses, sampleSourceTiles } from "../src/tile-sampler.js";
 import type { SourceContract } from "../src/types.js";
@@ -89,6 +91,29 @@ describe("sampleAddresses", () => {
     );
 
     expect(addresses).toEqual([{ z: 6, x: 34, y: 20 }]);
+  });
+
+  // The zoom set held minimum, maximum, and one midpoint, so slicing it by
+  // `maxTiles` could only ever shrink it. `--max-sample-tiles 5` probed three
+  // addresses, and asking for more confidence in a sampled finding did nothing.
+  it("probes as many addresses as were asked for", () => {
+    const addresses = sampleAddresses(
+      { id: "a", location: "a", kind: "pmtiles", vectorLayers: [], minzoom: 0, maxzoom: 14 },
+      5
+    );
+
+    expect(addresses.map((address) => address.z)).toEqual([0, 4, 7, 11, 14]);
+  });
+
+  it("spreads a larger request across the source zoom range without repeating one", () => {
+    const addresses = sampleAddresses(
+      { id: "a", location: "a", kind: "pmtiles", vectorLayers: [], minzoom: 2, maxzoom: 6 },
+      8
+    );
+
+    // The range holds five distinct zooms, so eight cannot be filled and the
+    // sample says so by being shorter rather than by probing z4 three times.
+    expect(addresses.map((address) => address.z)).toEqual([2, 3, 4, 5, 6]);
   });
 
   it("collapses to a single address when the source has one zoom level", () => {
@@ -186,5 +211,71 @@ describe("sampleSourceTiles", () => {
     const sample = await sampleSourceTiles(contract, { ...options, maxTiles: 1 });
 
     expect(sample.attempted).toHaveLength(1);
+  });
+});
+
+// Retention used to be budgeted across all combinations at once. Once layer
+// filter inputs joined the sample, crossing a handful of class values with a
+// property as varied as `rank` overran that budget and dropped whole classes —
+// which reads as "every icon resolves" rather than as a gap.
+describe("retention budget", () => {
+  const classes = Array.from({ length: 40 }, (_, index) => `class_${index}`);
+  const ranks = Array.from({ length: 30 }, (_, index) => index + 1);
+
+  let workDir: string;
+
+  beforeAll(async () => {
+    const { encodeTileFrom } = await import("../../../scripts/build-fixtures.mjs");
+    workDir = await mkdtemp(join(tmpdir(), "maptiles-doctor-budget-"));
+
+    const features = classes.flatMap((value) =>
+      ranks.map((rank) => ({ properties: { class: value, rank } }))
+    );
+    await mkdir(join(workDir, "tiles", "0", "0"), { recursive: true });
+    await writeFile(
+      join(workDir, "tiles", "0", "0", "0.pbf"),
+      encodeTileFrom([{ name: "poi", features }])
+    );
+    await writeFile(
+      join(workDir, "tilejson.json"),
+      JSON.stringify({
+        tilejson: "3.0.0",
+        minzoom: 0,
+        maxzoom: 0,
+        tiles: ["./tiles/{z}/{x}/{y}.pbf"]
+      })
+    );
+  });
+
+  afterAll(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  it("keeps every candidate name when a filter input has wide variety", async () => {
+    const contract = await readSourceContract("crowded", join(workDir, "tilejson.json"), 5_000);
+    const sample = await sampleSourceTiles(contract, {
+      ...options,
+      valueProperties: new Set(["class", "rank"]),
+      keyProperties: new Set(["class"])
+    });
+
+    const observed = sample.layers.get("poi");
+    const sampledClasses = new Set(
+      observed?.valueCombinations.map((combination) => combination.properties.class)
+    );
+    expect([...sampledClasses].sort()).toEqual([...classes].sort());
+  });
+
+  it("reports that it stopped short rather than looking complete", async () => {
+    const contract = await readSourceContract("crowded", join(workDir, "tilejson.json"), 5_000);
+    const sample = await sampleSourceTiles(contract, {
+      ...options,
+      valueProperties: new Set(["class", "rank"]),
+      keyProperties: new Set(["class"])
+    });
+
+    // 30 ranks per class exceeds the per-name variant budget, and a bound that
+    // is not reported is indistinguishable from a clean result.
+    expect(sample.layers.get("poi")?.truncatedCombinations).toBe(true);
   });
 });

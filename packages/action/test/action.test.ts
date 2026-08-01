@@ -161,6 +161,33 @@ describe("runAction", () => {
     expect(calls.warning[0]).toContain("expression-property:");
   });
 
+  // An unrecognized threshold used to be cast straight through. Every severity
+  // comparison against it came out false, so a typo in a workflow file turned
+  // the whole gate off and the job passed with a report full of findings.
+  it("rejects an unrecognized fail threshold instead of disabling the gate", async () => {
+    inputs.set("style", resolve(root, "fixtures/simple-style/style.json"));
+    inputs.set("sources", `ghost=${tilejson}`);
+    inputs.set("report", join(workDir, "invalid-threshold-report.json"));
+    inputs.set("fail-threshold", "warnin");
+
+    await expect(runAction()).rejects.toThrow(
+      'Invalid fail-threshold "warnin". Expected one of: info, warning, risky, broken.'
+    );
+  });
+
+  it("counts findings at the configured threshold, not broken ones", async () => {
+    inputs.set("style", resolve(root, "fixtures/simple-style/style.json"));
+    inputs.set("sources", `ghost=${tilejson}`);
+    inputs.set("report", join(workDir, "threshold-count-report.json"));
+    inputs.set("fail-threshold", "warning");
+
+    await runAction();
+
+    // The only finding is a `warning`, so reporting the `broken` count here
+    // announced "found 0 issue(s)" on a job it had just failed.
+    expect(calls.failed).toEqual(["MapTiles Doctor found 1 contract issue(s) at or above warning."]);
+  });
+
   it("rejects a malformed source override", async () => {
     inputs.set("style", resolve(root, "fixtures/simple-style/style.json"));
     inputs.set("sources", "openmaptiles");

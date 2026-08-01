@@ -59,7 +59,13 @@ export const doctorReportSchema = z.object({
   })
 });
 
-/** Throws with the failing paths when the value is not a valid report. */
+/**
+ * Throws with the failing paths when the value is not a valid report.
+ *
+ * Returns the parsed value, not the input: the published JSON Schema sets
+ * `additionalProperties: false`, so a runtime parser that hands back unknown
+ * keys accepts documents the schema rejects.
+ */
 export function parseDoctorReport(value: unknown): DoctorReport {
   const result = doctorReportSchema.safeParse(value);
   if (!result.success) {
@@ -68,7 +74,7 @@ export function parseDoctorReport(value: unknown): DoctorReport {
       .join("; ");
     throw new Error(`Report does not match schema v1: ${issues}`);
   }
-  return value as DoctorReport;
+  return result.data as DoctorReport;
 }
 
 export function doctorReportJsonSchema(): Record<string, unknown> {

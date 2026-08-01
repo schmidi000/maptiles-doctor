@@ -1,3 +1,9 @@
+import {
+  convertFilter,
+  isExpression,
+  type FilterSpecification
+} from "@maplibre/maplibre-gl-style-spec";
+
 /** One piece of an icon name: a fixed string, or a feature property to substitute. */
 export type IconNamePart = { literal: string } | { property: string };
 
@@ -32,7 +38,7 @@ export function iconTemplateProperties(templates: IconNameTemplate[]): Set<strin
 /** Builds the name a template produces for one sampled feature, if it can. */
 export function renderIconName(
   parts: IconNamePart[],
-  values: Record<string, string>
+  values: Record<string, string | number | boolean>
 ): string | undefined {
   let name = "";
   for (const part of parts) {
@@ -44,7 +50,7 @@ export function renderIconName(
     if (value === undefined) {
       return undefined;
     }
-    name += value;
+    name += String(value);
   }
   return name === "" ? undefined : name;
 }
@@ -249,6 +255,13 @@ function collectStaticStrings(value: unknown): string[] {
     return [];
   }
 
+  // `text-font` takes a bare array of font names as well as an expression, and
+  // `["Noto Sans Regular"]` has no operator at index 0 — every element of it is
+  // a real name. Only an actual expression gets its operator skipped.
+  if (!isExpression(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
   if (value[0] === "literal" && Array.isArray(value[1])) {
     return value[1].filter((item): item is string => typeof item === "string");
   }
@@ -267,8 +280,76 @@ function collectStaticStrings(value: unknown): string[] {
     return branchOutputs(value).flatMap(collectStaticStrings);
   }
 
-  return value.flatMap(collectStaticStrings);
+  // Anything else contributes only through its arguments. Index 0 is the
+  // operator: harvesting it asked the glyph endpoint for a font stack named
+  // `coalesce`, turning a valid style into an incomplete report.
+  return value.slice(1).flatMap(collectStaticStrings);
 }
+
+/**
+ * Feature properties a layer `filter` reads, and whether the filter can be
+ * decided from properties alone. `within` and friends need real geometry, and
+ * feature state has no meaning outside a running map, so a filter using them
+ * cannot be evaluated against a sampled feature and must not be guessed at.
+ */
+export function filterInputs(filter: unknown): { properties: Set<string>; evaluable: boolean } {
+  const properties = new Set<string>();
+  let evaluable = true;
+
+  if (filter === undefined) {
+    return { properties, evaluable };
+  }
+
+  // Legacy filters name their property bare — `["==", "class", "airport"]` —
+  // so they are normalized to expression syntax before anything is read out.
+  let normalized: unknown = filter;
+  try {
+    normalized = convertFilter(filter as FilterSpecification);
+  } catch {
+    return { properties, evaluable: false };
+  }
+
+  const walk = (value: unknown): void => {
+    if (!Array.isArray(value)) {
+      return;
+    }
+    const operator = value[0];
+    if (operator === "get" && typeof value[1] === "string" && value.length === 2) {
+      properties.add(value[1]);
+      return;
+    }
+    if (operator === "has" && typeof value[1] === "string" && value.length === 2) {
+      properties.add(value[1]);
+      return;
+    }
+    if (typeof operator === "string" && undecidableOperators.has(operator)) {
+      evaluable = false;
+      return;
+    }
+    for (const item of value.slice(1)) {
+      walk(item);
+    }
+  };
+  walk(normalized);
+
+  return { properties, evaluable };
+}
+
+/**
+ * Operators whose value cannot be reconstructed from a sampled feature's
+ * properties and geometry type.
+ */
+const undecidableOperators = new Set([
+  "within",
+  "distance-from-center",
+  "feature-state",
+  "global-state",
+  "accumulated",
+  "line-progress",
+  "pitch",
+  "id",
+  "properties"
+]);
 
 // `match` alternates label/output from index 2, `case` alternates
 // condition/output from index 1, and `step` alternates output/stop from index 2.

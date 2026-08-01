@@ -116,16 +116,35 @@ export interface TileAddress {
   y: number;
 }
 
+/**
+ * One feature as sampling observed it, reduced to what the icon checks need:
+ * the values a name is built from, plus everything needed to decide whether the
+ * feature reaches the layer at all.
+ */
+export interface SampledFeature {
+  /**
+   * Values are kept in their tile types, not stringified: a filter such as
+   * `["<=", ["get", "ref_length"], 6]` compares numbers, and `"7" <= 6` is not
+   * the same question as `7 <= 6`.
+   */
+  properties: Record<string, string | number | boolean>;
+  /** MVT geometry type: 1 point, 2 line, 3 polygon. Layer filters test it. */
+  geometryType: number;
+  /** Zooms of the sampled tiles this combination was observed at. */
+  zooms: number[];
+}
+
 export interface SampledLayer {
   featureCount: number;
   properties: Set<string>;
   /**
-   * Distinct combinations of the properties an `icon-image` builds a name from,
-   * taken per feature so a name is only ever built from values that really
-   * occur together. Empty unless the style has a data-driven `icon-image`, and
-   * bounded, so `truncated` marks that further combinations were not kept.
+   * Distinct combinations of the properties an `icon-image` builds a name from
+   * and the properties its layer filters on, taken per feature so a name is only
+   * ever built from values that really occur together. Empty unless the style
+   * has a data-driven `icon-image`, and bounded, so `truncatedCombinations`
+   * marks that further combinations were not kept.
    */
-  valueCombinations: Record<string, string>[];
+  valueCombinations: SampledFeature[];
   truncatedCombinations?: boolean | undefined;
 }
 

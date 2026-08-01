@@ -29,6 +29,19 @@ describe("sprite checks", () => {
     expect(finding?.path).toMatch(/sprite\.json$/);
   });
 
+  // The assets status read the incomplete list only, so it could never say
+  // `failed`. A report carried a broken `sprite.icon.cafe.missing` finding next
+  // to an `assets` check that said `passed`, which no consumer can act on.
+  it("fails the assets check that its own broken finding belongs to", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("broken-style"),
+      sources: [{ id: "openmaptiles", location: tilejson }]
+    });
+
+    expect(report.findings.some((item) => item.id === "sprite.icon.cafe.missing")).toBe(true);
+    expect(report.checks.find((check) => check.id === "assets")?.status).toBe("failed");
+  });
+
   it("reports an unreadable sprite index as incomplete rather than passing it", async () => {
     const report = await checkStyleContract({ stylePath: fixture("missing-sprite") });
 
@@ -168,6 +181,47 @@ describe("sprite checks", () => {
       const report = await dataDriven();
 
       expect(report.findings.filter((item) => item.category === "icon")).toHaveLength(2);
+    });
+
+    // A layer's `filter` decides which features it ever draws. Checking every
+    // value in the source-layer against the sprite asked for icons the style
+    // cannot request: 20 of 62 names reported against one production style were
+    // excluded by the very layer that was said to want them.
+    describe("layer filters", () => {
+      it("does not report a name the layer filter excludes", async () => {
+        const report = await dataDriven();
+
+        expect(report.findings.filter((item) => item.layerId === "poi-filtered")).toEqual([]);
+      });
+
+      it("reads a legacy filter's bare property name identically", async () => {
+        const report = await dataDriven();
+
+        expect(report.findings.filter((item) => item.layerId === "poi-filtered-legacy")).toEqual(
+          []
+        );
+      });
+
+      it("counts the features a filter rejected as evidence", async () => {
+        const report = await dataDriven();
+
+        expect(
+          report.incompleteChecks.find((item) => item.id.startsWith("layer.poi-filtered-geometry."))
+        ).toMatchObject({ category: "icon", evidence: { rejectedByFilter: 2 } });
+      });
+
+      it("reports incomplete rather than guessing at a filter it cannot decide", async () => {
+        const report = await dataDriven();
+
+        expect(
+          report.incompleteChecks.find(
+            (item) => item.id === "layer.poi-filter-unevaluable.icon-from-data.filter-unevaluable"
+          )
+        ).toMatchObject({ category: "icon" });
+        expect(report.findings.filter((item) => item.layerId === "poi-filter-unevaluable")).toEqual(
+          []
+        );
+      });
     });
   });
 });

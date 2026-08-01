@@ -1,7 +1,7 @@
 {
   "version": 8,
   "name": "Data-driven icon fixture style",
-  "$comment": "The sampled poi features carry class=cafe and class=bar. The sprite holds icon-cafe but not icon-bar, so only poi-concat and poi-token may report, and only for icon-bar. poi-coerced proves an operator name is not an icon, step-default proves an empty branch is not one, and poi-unknown-property must report an incomplete check rather than a finding.",
+  "$comment": "The sampled poi features carry class=cafe and class=bar, both points. The sprite holds icon-cafe but not icon-bar, so only poi-concat and poi-token may report, and only for icon-bar. poi-coerced proves an operator name is not an icon, step-default proves an empty branch is not one, and poi-unknown-property must report an incomplete check rather than a finding. The filtered layers below prove a name is only checked when the layer can actually draw the feature that produces it.",
   "sprite": "./sprite",
   "sources": {
     "openmaptiles": {
@@ -53,6 +53,50 @@
       "source-layer": "poi",
       "layout": {
         "icon-image": ["get", "brand"]
+      }
+    },
+    {
+      "$comment": "The filter admits only class=cafe, whose icon the sprite holds. icon-bar is unreachable here and must not be reported.",
+      "id": "poi-filtered",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "filter": ["==", ["get", "class"], "cafe"],
+      "layout": {
+        "icon-image": ["concat", "icon-", ["get", "class"]]
+      }
+    },
+    {
+      "$comment": "The same constraint in legacy filter syntax, which names its property bare.",
+      "id": "poi-filtered-legacy",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "filter": ["==", "class", "cafe"],
+      "layout": {
+        "icon-image": ["concat", "icon-", ["get", "class"]]
+      }
+    },
+    {
+      "$comment": "Sampled poi features are points, so a polygon-only layer draws none of them and the check is incomplete rather than a finding.",
+      "id": "poi-filtered-geometry",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "filter": ["==", ["geometry-type"], "Polygon"],
+      "layout": {
+        "icon-image": ["concat", "icon-", ["get", "class"]]
+      }
+    },
+    {
+      "$comment": "A filter needing real geometry cannot be decided from a sampled feature, so guessing is refused and the check reports incomplete.",
+      "id": "poi-filter-unevaluable",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "filter": ["within", { "type": "Polygon", "coordinates": [] }],
+      "layout": {
+        "icon-image": ["concat", "icon-", ["get", "class"]]
       }
     }
   ]

@@ -1,32 +1,42 @@
 import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
-import { isHttpUrl, readRemoteBytes, resolveLocation } from "./io.js";
+import { isHttpUrl, locationDir, readRemoteBytes, resolveLocation } from "./io.js";
 import { openMbtiles, openPmtiles } from "./source-reader.js";
-import type { SourceContract, TileAddress, TileSample } from "./types.js";
+import type { SampledFeature, SourceContract, TileAddress, TileSample } from "./types.js";
 
 export interface SampleOptions {
   timeoutMs: number;
   allowNetwork: boolean;
   maxTiles?: number;
   /**
-   * Properties an `icon-image` builds a name from. Their values are recorded per
-   * feature so the names a style really produces can be enumerated. Nothing is
-   * recorded when this is empty, which is the common case.
+   * Properties an `icon-image` builds a name from, together with the ones its
+   * layer filters on. Their values are recorded per feature so the names a style
+   * really produces can be enumerated and checked against the filter that
+   * decides which features reach the layer. Nothing is recorded when this is
+   * empty, which is the common case.
    */
   valueProperties?: Set<string> | undefined;
+  /**
+   * The subset of `valueProperties` a name is actually built from. Retention is
+   * budgeted per distinct combination of these rather than across all of them,
+   * so a property with wide variety that only appears in a filter — `rank`, on a
+   * POI layer — cannot crowd out the class values whose icons are the point.
+   */
+  keyProperties?: Set<string> | undefined;
   /** Longitude and latitude to sample at, overriding the built-in anchors. */
   sampleAt?: [number, number] | undefined;
 }
 
 /**
- * Enough distinct combinations to find a missing icon without holding a tile's
- * worth of strings. A source-layer with more variety than this is sampled, not
- * enumerated, and says so through `truncatedCombinations`.
+ * Enough distinct candidate names to find a missing icon without holding a
+ * tile's worth of strings, and enough variants of each to give a layer filter a
+ * fair chance of admitting one. A source-layer with more variety than this is
+ * sampled, not enumerated, and says so through `truncatedCombinations`.
  */
-const maxValueCombinations = 200;
+const maxValueKeys = 500;
+const maxVariantsPerKey = 20;
 
 /**
  * Reads a handful of real tiles from a source and reports the layers and
@@ -71,7 +81,7 @@ export async function sampleSourceTiles(
         continue;
       }
       sample.retrieved.push(address);
-      mergeTile(sample, bytes, options.valueProperties);
+      mergeTile(sample, bytes, address.z, options.valueProperties, options.keyProperties);
     } catch (error) {
       sample.failures.push(
         `${address.z}/${address.x}/${address.y}: ${error instanceof Error ? error.message : String(error)}`
@@ -121,16 +131,24 @@ export function sampleAddresses(
         // centre, which for a small bounding box is as good a guess as exists.
         [[(west + east) / 2, (south + north) / 2] as [number, number]];
 
-  const zooms = new Set<number>([minzoom, maxzoom]);
-  if (maxTiles > 2 && maxzoom > minzoom) {
-    zooms.add(Math.floor((minzoom + maxzoom) / 2));
+  // `maxTiles` is the number of addresses to probe, so the zooms are spread
+  // across the source range to fill it. Adding only a midpoint capped every run
+  // at three addresses however large the option was set, which made asking for
+  // more confidence in a sampled finding do nothing at all.
+  const requested = Math.max(1, maxTiles);
+  const zooms = new Set<number>([minzoom]);
+  if (requested > 1) {
+    zooms.add(maxzoom);
+  }
+  for (let step = 1; step < requested - 1 && zooms.size < requested; step += 1) {
+    zooms.add(clampZoom(minzoom + ((maxzoom - minzoom) * step) / (requested - 1)));
   }
 
   // Each zoom takes a different anchor, so a run that probes three tiles looks
   // at three places rather than three scales of one.
   return [...zooms]
     .sort((a, b) => a - b)
-    .slice(0, Math.max(1, maxTiles))
+    .slice(0, requested)
     .map((z, index) => {
       const [lon, lat] = anchors[index % anchors.length]!;
       return { z, ...lonLatToTile(lon, lat, z) };
@@ -175,14 +193,17 @@ async function readTile(
     .replace("{x}", String(address.x))
     .replace("{y}", String(address.y));
 
-  if (isHttpUrl(target)) {
-    const bytes = await readRemoteBytes(target, timeoutMs);
+  // Resolved against the TileJSON that declared it before it is classified: a
+  // relative template under a remote TileJSON is a URL, and testing the raw
+  // template for `http` sent it to the filesystem reader instead.
+  const resolved = resolveLocation(target, locationDir(contract.location));
+  if (isHttpUrl(resolved)) {
+    const bytes = await readRemoteBytes(resolved, timeoutMs);
     return bytes ? decompress(bytes) : undefined;
   }
 
-  // A tile template can also point at a directory of tiles on disk, resolved
-  // relative to the TileJSON that declared it.
-  return readLocalTile(resolveLocation(target, dirname(contract.location)));
+  // A tile template can also point at a directory of tiles on disk.
+  return readLocalTile(resolved);
 }
 
 async function readLocalTile(path: string): Promise<Uint8Array | undefined> {
@@ -218,9 +239,15 @@ async function readMbtilesTile(
 function mergeTile(
   sample: TileSample,
   bytes: Uint8Array,
-  valueProperties: Set<string> | undefined
+  zoom: number,
+  valueProperties: Set<string> | undefined,
+  keyProperties: Set<string> | undefined
 ): void {
   const tile = new VectorTile(new PbfReader(bytes));
+  // Budgeting per candidate name rather than across all combinations: crossing
+  // the icon properties with a filter input as varied as `rank` overran a flat
+  // cap and dropped whole class values, which read as "every icon resolves".
+  const names = keyProperties?.size ? keyProperties : valueProperties;
 
   for (const [name, layer] of Object.entries(tile.layers)) {
     const observed = sample.layers.get(name) ?? {
@@ -232,12 +259,17 @@ function mergeTile(
 
     // Combinations are deduplicated across every tile of the source, so a
     // property that varies little stays cheap however many features carry it.
-    const seen = new Set(
-      observed.valueCombinations.map((combination) => JSON.stringify(combination))
-    );
+    const seen = new Map<string, SampledFeature>();
+    const variants = new Map<string, number>();
+    for (const combination of observed.valueCombinations) {
+      seen.set(combinationKey(combination), combination);
+      const key = nameKey(combination, names);
+      variants.set(key, (variants.get(key) ?? 0) + 1);
+    }
 
     for (let index = 0; index < layer.length; index += 1) {
-      const properties = layer.feature(index).properties;
+      const feature = layer.feature(index);
+      const properties = feature.properties;
       for (const property of Object.keys(properties)) {
         observed.properties.add(property);
       }
@@ -245,31 +277,64 @@ function mergeTile(
         continue;
       }
 
-      const combination: Record<string, string> = {};
+      const combination: SampledFeature = {
+        properties: {},
+        geometryType: feature.type,
+        zooms: [zoom]
+      };
       for (const property of valueProperties) {
         const value = properties[property];
         if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-          combination[property] = String(value);
+          combination.properties[property] = value;
         }
       }
-      if (Object.keys(combination).length === 0) {
+      if (Object.keys(combination.properties).length === 0) {
         continue;
       }
 
-      const key = JSON.stringify(combination);
-      if (seen.has(key)) {
+      const key = combinationKey(combination);
+      const existing = seen.get(key);
+      if (existing) {
+        // The same values seen at another zoom widen where the combination is
+        // known to occur, which is what decides whether a layer's zoom range
+        // can ever draw it.
+        if (!existing.zooms.includes(zoom)) {
+          existing.zooms.push(zoom);
+        }
         continue;
       }
-      if (observed.valueCombinations.length >= maxValueCombinations) {
+
+      const group = nameKey(combination, names);
+      const kept = variants.get(group);
+      if (kept === undefined && variants.size >= maxValueKeys) {
         observed.truncatedCombinations = true;
         continue;
       }
-      seen.add(key);
+      if (kept !== undefined && kept >= maxVariantsPerKey) {
+        observed.truncatedCombinations = true;
+        continue;
+      }
+
+      variants.set(group, (kept ?? 0) + 1);
+      seen.set(key, combination);
       observed.valueCombinations.push(combination);
     }
 
     sample.layers.set(name, observed);
   }
+}
+
+/** Identity of a combination: its values and its geometry type, not its zooms. */
+function combinationKey(combination: SampledFeature): string {
+  return JSON.stringify([combination.geometryType, combination.properties]);
+}
+
+/** The candidate name a combination stands for, which retention is budgeted by. */
+function nameKey(combination: SampledFeature, names: Set<string> | undefined): string {
+  if (!names?.size) {
+    return "";
+  }
+  return JSON.stringify([...names].map((property) => combination.properties[property] ?? null));
 }
 
 function decompress(bytes: Uint8Array): Uint8Array {

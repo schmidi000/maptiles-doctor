@@ -6,7 +6,7 @@ import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import type { Browser, Route } from "playwright";
-import { isHttpUrl, resolveLocation } from "./io.js";
+import { isHttpUrl, locationDir, resolveLocation } from "./io.js";
 import type { CanaryObservation, CanaryRun, CanarySpec, SourceContract } from "./types.js";
 
 /**
@@ -300,7 +300,7 @@ export function rewriteStyleForBrowser(
     // which it is.
     if (contract.kind === "tilejson" || contract.kind === "raster") {
       const tileUrls = (contract.tileUrls ?? []).map((template) =>
-        toBrowserUrl(template, dirname(contract.location))
+        toBrowserUrl(template, locationDir(contract.location))
       );
       if (tileUrls.length === 0) {
         unrenderableSources.push({
@@ -382,10 +382,11 @@ function absolutizeSprite(sprite: StyleSpecification["sprite"], styleDir: string
  * here would leave the browser asking for a literal `%7Bz%7D` tile.
  */
 function toBrowserUrl(location: string, baseDir: string): string {
-  if (isHttpUrl(location)) {
-    return location;
-  }
-  return `${ORIGIN}${resolveLocation(location, baseDir)}`;
+  // Resolved first: a relative reference inside a remote style resolves to a URL
+  // the browser fetches directly, and only a real local path needs the harness
+  // origin in front of it.
+  const resolved = resolveLocation(location, baseDir);
+  return isHttpUrl(resolved) ? resolved : `${ORIGIN}${resolved}`;
 }
 
 function stripPmtilesProtocol(location: string): string {

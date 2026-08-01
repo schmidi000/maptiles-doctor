@@ -60,10 +60,12 @@ export interface StubUri {
 
 export class StubDocument {
   readonly uri: StubUri;
+  /** VS Code increments this on every change to the buffer. */
+  version = 1;
 
   constructor(
     fsPath: string,
-    private readonly text: string,
+    private text: string,
     readonly languageId: string
   ) {
     this.uri = { fsPath, toString: () => fsPath };
@@ -71,6 +73,12 @@ export class StubDocument {
 
   getText(): string {
     return this.text;
+  }
+
+  /** Replaces the buffer's text as an edit would, version bump included. */
+  edit(text: string): void {
+    this.text = text;
+    this.version += 1;
   }
 
   positionAt(offset: number): Position {

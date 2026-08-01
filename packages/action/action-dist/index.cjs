@@ -2095,9 +2095,9 @@ var require_dispatcher_base = __commonJS({
       }
       close(callback) {
         if (callback === void 0) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve3, reject) => {
             this.close((err2, data) => {
-              return err2 ? reject(err2) : resolve4(data);
+              return err2 ? reject(err2) : resolve3(data);
             });
           });
         }
@@ -2135,12 +2135,12 @@ var require_dispatcher_base = __commonJS({
           err2 = null;
         }
         if (callback === void 0) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve3, reject) => {
             this.destroy(err2, (err3, data) => {
               return err3 ? (
                 /* istanbul ignore next: should never error */
                 reject(err3)
-              ) : resolve4(data);
+              ) : resolve3(data);
             });
           });
         }
@@ -4407,8 +4407,8 @@ var require_util2 = __commonJS({
     function createDeferredPromise() {
       let res;
       let rej;
-      const promise2 = new Promise((resolve4, reject) => {
-        res = resolve4;
+      const promise2 = new Promise((resolve3, reject) => {
+        res = resolve3;
         rej = reject;
       });
       return { promise: promise2, resolve: res, reject: rej };
@@ -6654,12 +6654,12 @@ upgrade: ${upgrade}\r
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve4, reject) => {
+      const waitForDrain = () => new Promise((resolve3, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve4;
+          callback = resolve3;
         }
       });
       socket.on("close", onDrain).on("drain", onDrain);
@@ -7296,12 +7296,12 @@ var require_client_h2 = __commonJS({
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve4, reject) => {
+      const waitForDrain = () => new Promise((resolve3, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve4;
+          callback = resolve3;
         }
       });
       h2stream.on("close", onDrain).on("drain", onDrain);
@@ -7779,16 +7779,16 @@ var require_client = __commonJS({
         return this[kNeedDrain] < 2;
       }
       async [kClose]() {
-        return new Promise((resolve4) => {
+        return new Promise((resolve3) => {
           if (this[kSize]) {
-            this[kClosedResolve] = resolve4;
+            this[kClosedResolve] = resolve3;
           } else {
-            resolve4(null);
+            resolve3(null);
           }
         });
       }
       async [kDestroy](err2) {
-        return new Promise((resolve4) => {
+        return new Promise((resolve3) => {
           const requests = this[kQueue].splice(this[kPendingIdx]);
           for (let i2 = 0; i2 < requests.length; i2++) {
             const request2 = requests[i2];
@@ -7799,7 +7799,7 @@ var require_client = __commonJS({
               this[kClosedResolve]();
               this[kClosedResolve] = null;
             }
-            resolve4(null);
+            resolve3(null);
           };
           if (this[kHTTPContext]) {
             this[kHTTPContext].destroy(err2, callback);
@@ -7850,7 +7850,7 @@ var require_client = __commonJS({
         });
       }
       try {
-        const socket = await new Promise((resolve4, reject) => {
+        const socket = await new Promise((resolve3, reject) => {
           client[kConnector]({
             host,
             hostname: hostname3,
@@ -7862,7 +7862,7 @@ var require_client = __commonJS({
             if (err2) {
               reject(err2);
             } else {
-              resolve4(socket2);
+              resolve3(socket2);
             }
           });
         });
@@ -8198,8 +8198,8 @@ var require_pool_base = __commonJS({
         if (this[kQueue].isEmpty()) {
           await Promise.all(this[kClients].map((c) => c.close()));
         } else {
-          await new Promise((resolve4) => {
-            this[kClosedResolve] = resolve4;
+          await new Promise((resolve3) => {
+            this[kClosedResolve] = resolve3;
           });
         }
       }
@@ -9442,7 +9442,7 @@ var require_readable = __commonJS({
         if (this._readableState.closeEmitted) {
           return null;
         }
-        return await new Promise((resolve4, reject) => {
+        return await new Promise((resolve3, reject) => {
           if (this[kContentLength] > limit) {
             this.destroy(new AbortError());
           }
@@ -9455,7 +9455,7 @@ var require_readable = __commonJS({
             if (signal?.aborted) {
               reject(signal.reason ?? new AbortError());
             } else {
-              resolve4(null);
+              resolve3(null);
             }
           }).on("error", noop).on("data", function(chunk) {
             limit -= chunk.length;
@@ -9474,7 +9474,7 @@ var require_readable = __commonJS({
     }
     async function consume(stream, type) {
       assert2(!stream[kConsume]);
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve3, reject) => {
         if (isUnusable(stream)) {
           const rState = stream._readableState;
           if (rState.destroyed && rState.closeEmitted === false) {
@@ -9491,7 +9491,7 @@ var require_readable = __commonJS({
             stream[kConsume] = {
               type,
               stream,
-              resolve: resolve4,
+              resolve: resolve3,
               reject,
               length: 0,
               body: []
@@ -9561,18 +9561,18 @@ var require_readable = __commonJS({
       return buffer;
     }
     function consumeEnd(consume2) {
-      const { type, body, resolve: resolve4, stream, length } = consume2;
+      const { type, body, resolve: resolve3, stream, length } = consume2;
       try {
         if (type === "text") {
-          resolve4(chunksDecode(body, length));
+          resolve3(chunksDecode(body, length));
         } else if (type === "json") {
-          resolve4(JSON.parse(chunksDecode(body, length)));
+          resolve3(JSON.parse(chunksDecode(body, length)));
         } else if (type === "arrayBuffer") {
-          resolve4(chunksConcat(body, length).buffer);
+          resolve3(chunksConcat(body, length).buffer);
         } else if (type === "blob") {
-          resolve4(new Blob(body, { type: stream[kContentType] }));
+          resolve3(new Blob(body, { type: stream[kContentType] }));
         } else if (type === "bytes") {
-          resolve4(chunksConcat(body, length));
+          resolve3(chunksConcat(body, length));
         }
         consumeFinish(consume2);
       } catch (err2) {
@@ -9829,9 +9829,9 @@ var require_api_request = __commonJS({
     };
     function request2(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           request2.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -10054,9 +10054,9 @@ var require_api_stream = __commonJS({
     };
     function stream(opts, factory, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           stream.call(this, opts, factory, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -10341,9 +10341,9 @@ var require_api_upgrade = __commonJS({
     };
     function upgrade(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           upgrade.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -10435,9 +10435,9 @@ var require_api_connect = __commonJS({
     };
     function connect(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           connect.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -14299,7 +14299,7 @@ var require_fetch = __commonJS({
       function dispatch({ body }) {
         const url2 = requestCurrentURL(request2);
         const agent = fetchParams.controller.dispatcher;
-        return new Promise((resolve4, reject) => agent.dispatch(
+        return new Promise((resolve3, reject) => agent.dispatch(
           {
             path: url2.pathname + url2.search,
             origin: url2.origin,
@@ -14375,7 +14375,7 @@ var require_fetch = __commonJS({
                 }
               }
               const onError = this.onError.bind(this);
-              resolve4({
+              resolve3({
                 status,
                 statusText,
                 headersList,
@@ -14421,7 +14421,7 @@ var require_fetch = __commonJS({
               for (let i2 = 0; i2 < rawHeaders.length; i2 += 2) {
                 headersList.append(bufferToLowerCasedHeaderName(rawHeaders[i2]), rawHeaders[i2 + 1].toString("latin1"), true);
               }
-              resolve4({
+              resolve3({
                 status,
                 statusText: STATUS_CODES[status],
                 headersList,
@@ -18151,8 +18151,8 @@ var require_util8 = __commonJS({
       return true;
     }
     function delay(ms) {
-      return new Promise((resolve4) => {
-        setTimeout(resolve4, ms).unref();
+      return new Promise((resolve3) => {
+        setTimeout(resolve3, ms).unref();
       });
     }
     module2.exports = {
@@ -23558,9 +23558,9 @@ var require_dispatcher_base2 = __commonJS({
       }
       close(callback) {
         if (callback === void 0) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve3, reject) => {
             this.close((err2, data) => {
-              return err2 ? reject(err2) : resolve4(data);
+              return err2 ? reject(err2) : resolve3(data);
             });
           });
         }
@@ -23598,9 +23598,9 @@ var require_dispatcher_base2 = __commonJS({
           err2 = null;
         }
         if (callback === void 0) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve3, reject) => {
             this.destroy(err2, (err3, data) => {
-              return err3 ? reject(err3) : resolve4(data);
+              return err3 ? reject(err3) : resolve3(data);
             });
           });
         }
@@ -28543,12 +28543,12 @@ upgrade: ${upgrade}\r
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve4, reject) => {
+      const waitForDrain = () => new Promise((resolve3, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve4;
+          callback = resolve3;
         }
       });
       socket.on("close", onDrain).on("drain", onDrain);
@@ -29814,12 +29814,12 @@ var require_client_h22 = __commonJS({
           cb();
         }
       }
-      const waitForDrain = () => new Promise((resolve4, reject) => {
+      const waitForDrain = () => new Promise((resolve3, reject) => {
         assert2(callback === null);
         if (socket[kError]) {
           reject(socket[kError]);
         } else {
-          callback = resolve4;
+          callback = resolve3;
         }
       });
       h2stream.on("close", onDrain).on("drain", onDrain);
@@ -30144,16 +30144,16 @@ var require_client2 = __commonJS({
         return this[kNeedDrain] < 2;
       }
       [kClose]() {
-        return new Promise((resolve4) => {
+        return new Promise((resolve3) => {
           if (this[kSize]) {
-            this[kClosedResolve] = resolve4;
+            this[kClosedResolve] = resolve3;
           } else {
-            resolve4(null);
+            resolve3(null);
           }
         });
       }
       [kDestroy](err2) {
-        return new Promise((resolve4) => {
+        return new Promise((resolve3) => {
           const requests = this[kQueue].splice(this[kPendingIdx]);
           for (let i2 = 0; i2 < requests.length; i2++) {
             const request2 = requests[i2];
@@ -30166,7 +30166,7 @@ var require_client2 = __commonJS({
               this[kClosedResolve]();
               this[kClosedResolve] = null;
             }
-            resolve4(null);
+            resolve3(null);
           };
           if (this[kHTTPContext]) {
             this[kHTTPContext].destroy(err2, callback);
@@ -30578,8 +30578,8 @@ var require_pool_base2 = __commonJS({
           }
           return Promise.all(closeAll);
         } else {
-          return new Promise((resolve4) => {
-            this[kClosedResolve] = resolve4;
+          return new Promise((resolve3) => {
+            this[kClosedResolve] = resolve3;
           });
         }
       }
@@ -33065,7 +33065,7 @@ var require_readable2 = __commonJS({
         if (this._readableState.closeEmitted) {
           return Promise.resolve(null);
         }
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           if (this[kContentLength] && this[kContentLength] > limit || this[kBytesRead] > limit) {
             this.destroy(new AbortError());
           }
@@ -33079,11 +33079,11 @@ var require_readable2 = __commonJS({
               if (signal.aborted) {
                 reject(signal.reason ?? new AbortError());
               } else {
-                resolve4(null);
+                resolve3(null);
               }
             });
           } else {
-            this.on("close", resolve4);
+            this.on("close", resolve3);
           }
           this.on("error", noop).on("data", () => {
             if (this[kBytesRead] > limit) {
@@ -33126,7 +33126,7 @@ var require_readable2 = __commonJS({
     }
     function consume(stream, type) {
       assert2(!stream[kConsume]);
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve3, reject) => {
         if (isUnusable(stream)) {
           const rState = stream._readableState;
           if (rState.destroyed && rState.closeEmitted === false) {
@@ -33141,7 +33141,7 @@ var require_readable2 = __commonJS({
             stream[kConsume] = {
               type,
               stream,
-              resolve: resolve4,
+              resolve: resolve3,
               reject,
               length: 0,
               body: []
@@ -33221,18 +33221,18 @@ var require_readable2 = __commonJS({
       return buffer;
     }
     function consumeEnd(consume2, encoding) {
-      const { type, body, resolve: resolve4, stream, length } = consume2;
+      const { type, body, resolve: resolve3, stream, length } = consume2;
       try {
         if (type === "text") {
-          resolve4(chunksDecode(body, length, encoding));
+          resolve3(chunksDecode(body, length, encoding));
         } else if (type === "json") {
-          resolve4(JSON.parse(chunksDecode(body, length, encoding)));
+          resolve3(JSON.parse(chunksDecode(body, length, encoding)));
         } else if (type === "arrayBuffer") {
-          resolve4(chunksConcat(body, length).buffer);
+          resolve3(chunksConcat(body, length).buffer);
         } else if (type === "blob") {
-          resolve4(new Blob(body, { type: stream[kContentType] }));
+          resolve3(new Blob(body, { type: stream[kContentType] }));
         } else if (type === "bytes") {
-          resolve4(chunksConcat(body, length));
+          resolve3(chunksConcat(body, length));
         }
         consumeFinish(consume2);
       } catch (err2) {
@@ -33448,9 +33448,9 @@ var require_api_request2 = __commonJS({
     };
     function request2(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           request2.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -33711,9 +33711,9 @@ var require_api_stream2 = __commonJS({
     };
     function stream(opts, factory, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           stream.call(this, opts, factory, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -34013,9 +34013,9 @@ var require_api_upgrade2 = __commonJS({
     };
     function upgrade(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           upgrade.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -34109,9 +34109,9 @@ var require_api_connect2 = __commonJS({
     };
     function connect(opts, callback) {
       if (callback === void 0) {
-        return new Promise((resolve4, reject) => {
+        return new Promise((resolve3, reject) => {
           connect.call(this, opts, (err2, data) => {
-            return err2 ? reject(err2) : resolve4(data);
+            return err2 ? reject(err2) : resolve3(data);
           });
         });
       }
@@ -35425,7 +35425,7 @@ var require_snapshot_recorder = __commonJS({
   "node_modules/undici/lib/mock/snapshot-recorder.js"(exports2, module2) {
     "use strict";
     var { writeFile: writeFile4, readFile: readFile5, mkdir: mkdir3 } = require("node:fs/promises");
-    var { dirname: dirname4, resolve: resolve4 } = require("node:path");
+    var { dirname: dirname3, resolve: resolve3 } = require("node:path");
     var { setTimeout: setTimeout2, clearTimeout: clearTimeout2 } = require("node:timers");
     var { InvalidArgumentError, UndiciError } = require_errors2();
     var { hashId, isUrlExcludedFactory, normalizeHeaders, createHeaderFilters } = require_snapshot_utils();
@@ -35641,7 +35641,7 @@ var require_snapshot_recorder = __commonJS({
           throw new InvalidArgumentError("Snapshot path is required");
         }
         try {
-          const data = await readFile5(resolve4(path), "utf8");
+          const data = await readFile5(resolve3(path), "utf8");
           const parsed = JSON.parse(data);
           if (Array.isArray(parsed)) {
             this.#snapshots.clear();
@@ -35670,8 +35670,8 @@ var require_snapshot_recorder = __commonJS({
         if (!path) {
           throw new InvalidArgumentError("Snapshot path is required");
         }
-        const resolvedPath = resolve4(path);
-        await mkdir3(dirname4(resolvedPath), { recursive: true });
+        const resolvedPath = resolve3(path);
+        await mkdir3(dirname3(resolvedPath), { recursive: true });
         const data = Array.from(this.#snapshots.entries()).map(([hash2, snapshot]) => ({
           hash: hash2,
           snapshot
@@ -43167,7 +43167,7 @@ var require_fetch2 = __commonJS({
         const hasTrailingQuestionMark = url2.search.length === 0 && url2.href[url2.href.length - url2.hash.length - 1] === "?";
         return dispatchWithProtocolPreference(body);
         function dispatchWithProtocolPreference(body2, allowH2) {
-          return new Promise((resolve4, reject) => agent.dispatch(
+          return new Promise((resolve3, reject) => agent.dispatch(
             {
               path: hasTrailingQuestionMark ? `${path}?` : path,
               origin: url2.origin,
@@ -43250,7 +43250,7 @@ var require_fetch2 = __commonJS({
                   }
                 }
                 const onError = (err2) => this.onResponseError(controller, err2);
-                resolve4({
+                resolve3({
                   status,
                   statusText,
                   headersList,
@@ -43283,7 +43283,7 @@ var require_fetch2 = __commonJS({
                   fetchParams.controller.off("terminated", this.abort);
                 }
                 if (request2.mode === "websocket" && allowH2 !== false && error52?.code === "UND_ERR_INFO" && error52?.message === "HTTP/2: Extended CONNECT protocol not supported by server") {
-                  resolve4(dispatchWithProtocolPreference(body2, false));
+                  resolve3(dispatchWithProtocolPreference(body2, false));
                   return;
                 }
                 this.body?.destroy(error52);
@@ -43297,7 +43297,7 @@ var require_fetch2 = __commonJS({
                 const rawHeaders = controller?.rawHeaders ?? [];
                 const headersList = new HeadersList();
                 appendHeadersListFromResponseHeaders(headersList, headers, rawHeaders);
-                resolve4({
+                resolve3({
                   status,
                   statusText: STATUS_CODES[status],
                   headersList,
@@ -55082,7 +55082,7 @@ var require_dist = __commonJS({
       function assertRootKey(rootKey) {
         if (!rootKey) throw new Error('rootKey must identify the location of the expression in the style JSON, e.g. "layers[3].paint.line-width".');
       }
-      function isExpression(expression2) {
+      function isExpression2(expression2) {
         return Array.isArray(expression2) && expression2.length > 0 && typeof expression2[0] === "string" && expression2[0] in expressions;
       }
       function createExpression(expression2, rootKey, propertySpec, globalState) {
@@ -55203,7 +55203,7 @@ var require_dist = __commonJS({
       };
       function normalizePropertyExpression(value, rootKey, specification, globalState) {
         if (isFunction(value)) return new StylePropertyFunction(value, rootKey, specification);
-        else if (isExpression(value)) {
+        else if (isExpression2(value)) {
           const expression2 = createPropertyExpression(value, rootKey, specification, globalState);
           if (expression2.result === "error") throw new Error(expression2.value.map((err2) => `${err2.key}: ${err2.message}`).join(", "));
           return expression2.value;
@@ -55432,7 +55432,7 @@ var require_dist = __commonJS({
           parameters: ["zoom", "feature"]
         }
       };
-      function featureFilter(filter, rootKey, globalState) {
+      function featureFilter2(filter, rootKey, globalState) {
         if (filter === null || filter === void 0) return {
           filter: () => true,
           needGeometry: false,
@@ -55513,7 +55513,7 @@ var require_dist = __commonJS({
       function convertNegation(filter) {
         return ["!", filter];
       }
-      function convertFilter(filter, expectedTypes = {}) {
+      function convertFilter2(filter, expectedTypes = {}) {
         if (isExpressionFilter(filter)) return filter;
         if (!filter) return true;
         const legacyFilter = filter;
@@ -55533,7 +55533,7 @@ var require_dist = __commonJS({
             const [, ...conditions] = legacyFilter;
             return ["any", ...conditions.map((f) => {
               const types2 = {};
-              const child = convertFilter(f, types2);
+              const child = convertFilter2(f, types2);
               const typechecks = runtimeTypeChecks(types2);
               return typechecks === true ? child : [
                 "case",
@@ -55545,12 +55545,12 @@ var require_dist = __commonJS({
           }
           case "all": {
             const [, ...conditions] = legacyFilter;
-            const children = conditions.map((f) => convertFilter(f, expectedTypes));
+            const children = conditions.map((f) => convertFilter2(f, expectedTypes));
             return children.length > 1 ? ["all", ...children] : children[0];
           }
           case "none": {
             const [, ...conditions] = legacyFilter;
-            return ["!", convertFilter(["any", ...conditions], {})];
+            return ["!", convertFilter2(["any", ...conditions], {})];
           }
           case "in": {
             const [, property, ...values] = legacyFilter;
@@ -56114,7 +56114,7 @@ var require_dist = __commonJS({
             style: options2.style,
             styleSpec: options2.styleSpec
           }, value));
-          if (isExpression(deepUnbundle(value[1]))) return errors2.concat([new ValidationError(`${key}[1]`, value[1], "expressions are not allowed in function stops.")]);
+          if (isExpression2(deepUnbundle(value[1]))) return errors2.concat([new ValidationError(`${key}[1]`, value[1], "expressions are not allowed in function stops.")]);
           return errors2.concat(options2.validateSpec({
             key: `${key}[1]`,
             value: value[1],
@@ -56898,7 +56898,7 @@ Use an identity property function instead: \`{ "type": "identity", "property": $
         const styleSpec = options.styleSpec;
         options.validateSpec = validate;
         if (valueSpec.expression && isFunction(unbundle(value))) return validateFunction(options);
-        else if (valueSpec.expression && isExpression(deepUnbundle(value))) return validateExpression(options);
+        else if (valueSpec.expression && isExpression2(deepUnbundle(value))) return validateExpression(options);
         else if (valueSpec.type && VALIDATORS[valueSpec.type]) return VALIDATORS[valueSpec.type](options);
         else return validateObject(extendBy({}, options, { valueSpec: valueSpec.type ? styleSpec[valueSpec.type] : valueSpec }));
       }
@@ -57124,13 +57124,13 @@ ${currentIndent}`);
       function expressions$1(style) {
         const converted = [];
         eachLayer(style, (layer) => {
-          if (layer.filter) layer.filter = convertFilter(layer.filter);
+          if (layer.filter) layer.filter = convertFilter2(layer.filter);
         });
         eachProperty(style, {
           paint: true,
           layout: true
         }, ({ path, key, value, reference, set: set2 }) => {
-          if (isExpression(value) || key.endsWith("-transition") || reference === null) return;
+          if (isExpression2(value) || key.endsWith("-transition") || reference === null) return;
           if (typeof value === "object" && !Array.isArray(value)) {
             set2(convertFunction(value, reference));
             converted.push(path.join("."));
@@ -57230,7 +57230,7 @@ ${currentIndent}`);
         ZoomDependentExpression,
         createExpression,
         createPropertyExpression,
-        isExpression,
+        isExpression: isExpression2,
         isExpressionFilter,
         isZoomExpression,
         normalizePropertyExpression
@@ -57271,7 +57271,7 @@ ${currentIndent}`);
       exports3.ZoomConstantExpression = ZoomConstantExpression;
       exports3.ZoomDependentExpression = ZoomDependentExpression;
       exports3.classifyRings = classifyRings2;
-      exports3.convertFilter = convertFilter;
+      exports3.convertFilter = convertFilter2;
       exports3.convertFunction = convertFunction;
       exports3.createExpression = createExpression;
       exports3.createFunction = createFunction;
@@ -57282,12 +57282,12 @@ ${currentIndent}`);
       exports3.emptyStyle = emptyStyle;
       exports3.expression = expression;
       exports3.expressions = expressions;
-      exports3.featureFilter = featureFilter;
+      exports3.featureFilter = featureFilter2;
       exports3.format = format;
       exports3.function = styleFunction;
       exports3.groupByLayout = groupByLayout;
       exports3.interpolates = interpolateFactory;
-      exports3.isExpression = isExpression;
+      exports3.isExpression = isExpression2;
       exports3.isFunction = isFunction;
       exports3.isZoomExpression = isZoomExpression;
       exports3.latest = latest;
@@ -57466,11 +57466,11 @@ var import_os = require("os");
 var import_fs = require("fs");
 var __awaiter = function(thisArg, _arguments, P3, generator) {
   function adopt(value) {
-    return value instanceof P3 ? value : new P3(function(resolve4) {
-      resolve4(value);
+    return value instanceof P3 ? value : new P3(function(resolve3) {
+      resolve3(value);
     });
   }
-  return new (P3 || (P3 = Promise))(function(resolve4, reject) {
+  return new (P3 || (P3 = Promise))(function(resolve3, reject) {
     function fulfilled(value) {
       try {
         step(generator.next(value));
@@ -57486,7 +57486,7 @@ var __awaiter = function(thisArg, _arguments, P3, generator) {
       }
     }
     function step(result) {
-      result.done ? resolve4(result.value) : adopt(result.value).then(fulfilled, rejected);
+      result.done ? resolve3(result.value) : adopt(result.value).then(fulfilled, rejected);
     }
     step((generator = generator.apply(thisArg, _arguments || [])).next());
   });
@@ -57999,11 +57999,27 @@ var import_node_crypto = require("node:crypto");
 var import_promises = require("node:fs/promises");
 var import_node_path = require("node:path");
 var import_undici2 = __toESM(require_undici2(), 1);
-function resolveLocation(location, baseDir = process.cwd()) {
+function resolveLocation(location, base = process.cwd()) {
   if (isHttpUrl(location)) {
     return location;
   }
-  return (0, import_node_path.isAbsolute)(location) ? location : (0, import_node_path.resolve)(baseDir, location);
+  if (isHttpUrl(base)) {
+    return resolveAgainstUrl(location, base);
+  }
+  return (0, import_node_path.isAbsolute)(location) ? location : (0, import_node_path.resolve)(base, location);
+}
+function locationDir(location) {
+  if (!isHttpUrl(location)) {
+    return (0, import_node_path.dirname)(location);
+  }
+  const url2 = new URL(location);
+  url2.hash = "";
+  url2.search = "";
+  url2.pathname = url2.pathname.replace(/[^/]*$/, "");
+  return url2.toString();
+}
+function resolveAgainstUrl(reference, base) {
+  return new URL(reference, base).toString().replace(/%7B/g, "{").replace(/%7D/g, "}");
 }
 function isHttpUrl(location) {
   return location.startsWith("http://") || location.startsWith("https://");
@@ -58257,7 +58273,7 @@ function rewriteStyleForBrowser(style, styleDir, contracts) {
       continue;
     }
     if (contract.kind === "tilejson" || contract.kind === "raster") {
-      const tileUrls = (contract.tileUrls ?? []).map((template) => toBrowserUrl(template, (0, import_node_path2.dirname)(contract.location)));
+      const tileUrls = (contract.tileUrls ?? []).map((template) => toBrowserUrl(template, locationDir(contract.location)));
       if (tileUrls.length === 0) {
         unrenderableSources.push({
           id: sourceId,
@@ -58314,10 +58330,8 @@ function absolutizeSprite(sprite, styleDir) {
   return sprite;
 }
 function toBrowserUrl(location, baseDir) {
-  if (isHttpUrl(location)) {
-    return location;
-  }
-  return `${ORIGIN}${resolveLocation(location, baseDir)}`;
+  const resolved = resolveLocation(location, baseDir);
+  return isHttpUrl(resolved) ? resolved : `${ORIGIN}${resolved}`;
 }
 function stripPmtilesProtocol(location) {
   return location.startsWith("pmtiles://") ? location.slice("pmtiles://".length) : location;
@@ -58445,10 +58459,10 @@ function messageOf(error52) {
 }
 
 // packages/core/dist/checker.js
-var import_node_path4 = require("node:path");
-var import_maplibre_gl_style_spec = __toESM(require_dist(), 1);
+var import_maplibre_gl_style_spec2 = __toESM(require_dist(), 1);
 
 // packages/core/dist/expression.js
+var import_maplibre_gl_style_spec = __toESM(require_dist(), 1);
 function iconTemplateProperties(templates) {
   const properties = /* @__PURE__ */ new Set();
   for (const template of templates) {
@@ -58471,7 +58485,7 @@ function renderIconName(parts, values) {
     if (value === void 0) {
       return void 0;
     }
-    name += value;
+    name += String(value);
   }
   return name === "" ? void 0 : name;
 }
@@ -58610,6 +58624,9 @@ function collectStaticStrings(value) {
   if (!Array.isArray(value)) {
     return [];
   }
+  if (!(0, import_maplibre_gl_style_spec.isExpression)(value)) {
+    return value.filter((item) => typeof item === "string");
+  }
   if (value[0] === "literal" && Array.isArray(value[1])) {
     return value[1].filter((item) => typeof item === "string");
   }
@@ -58622,8 +58639,55 @@ function collectStaticStrings(value) {
   if (value[0] === "match" || value[0] === "case" || value[0] === "step") {
     return branchOutputs(value).flatMap(collectStaticStrings);
   }
-  return value.flatMap(collectStaticStrings);
+  return value.slice(1).flatMap(collectStaticStrings);
 }
+function filterInputs(filter) {
+  const properties = /* @__PURE__ */ new Set();
+  let evaluable = true;
+  if (filter === void 0) {
+    return { properties, evaluable };
+  }
+  let normalized = filter;
+  try {
+    normalized = (0, import_maplibre_gl_style_spec.convertFilter)(filter);
+  } catch {
+    return { properties, evaluable: false };
+  }
+  const walk = (value) => {
+    if (!Array.isArray(value)) {
+      return;
+    }
+    const operator = value[0];
+    if (operator === "get" && typeof value[1] === "string" && value.length === 2) {
+      properties.add(value[1]);
+      return;
+    }
+    if (operator === "has" && typeof value[1] === "string" && value.length === 2) {
+      properties.add(value[1]);
+      return;
+    }
+    if (typeof operator === "string" && undecidableOperators.has(operator)) {
+      evaluable = false;
+      return;
+    }
+    for (const item of value.slice(1)) {
+      walk(item);
+    }
+  };
+  walk(normalized);
+  return { properties, evaluable };
+}
+var undecidableOperators = /* @__PURE__ */ new Set([
+  "within",
+  "distance-from-center",
+  "feature-state",
+  "global-state",
+  "accumulated",
+  "line-progress",
+  "pitch",
+  "id",
+  "properties"
+]);
 function branchOutputs(expression) {
   const firstOutputIndex = expression[0] === "match" ? 3 : 2;
   const outputs = [];
@@ -73223,7 +73287,7 @@ function parseDoctorReport(value) {
     const issues = result.error.issues.map((issue3) => `${issue3.path.join(".") || "<root>"}: ${issue3.message}`).join("; ");
     throw new Error(`Report does not match schema v1: ${issues}`);
   }
-  return value;
+  return result.data;
 }
 
 // packages/core/dist/source-reader.js
@@ -74059,14 +74123,14 @@ var w = H;
 
 // packages/core/dist/source-reader.js
 async function readSourceContract(id, location, timeoutMs) {
-  const lower = location.toLowerCase();
-  if (lower.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
+  const path = locationPath(location).toLowerCase();
+  if (path.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
     return readPmtilesSource(id, location);
   }
-  if (lower.endsWith(".mbtiles")) {
+  if (path.endsWith(".mbtiles")) {
     return readMbtilesSource(id, location);
   }
-  if (lower.endsWith(".json") || isHttpUrl(location)) {
+  if (path.endsWith(".json") || isHttpUrl(location)) {
     return readTileJsonSource(id, location, timeoutMs);
   }
   return {
@@ -74075,6 +74139,17 @@ async function readSourceContract(id, location, timeoutMs) {
     kind: "unknown",
     vectorLayers: []
   };
+}
+function locationPath(location) {
+  const normalized = location.startsWith("pmtiles://") ? location.slice("pmtiles://".length) : location;
+  if (!isHttpUrl(normalized)) {
+    return normalized;
+  }
+  try {
+    return new URL(normalized).pathname;
+  } catch {
+    return normalized;
+  }
 }
 function openPmtiles(location) {
   const normalized = location.startsWith("pmtiles://") ? location.slice("pmtiles://".length) : location;
@@ -74238,7 +74313,6 @@ var LocalFileSource = class {
 
 // packages/core/dist/tile-sampler.js
 var import_promises4 = require("node:fs/promises");
-var import_node_path3 = require("node:path");
 var import_node_zlib2 = require("node:zlib");
 
 // node_modules/@mapbox/point-geometry/index.js
@@ -75060,7 +75134,8 @@ function readUtf8(buf, pos, end) {
 }
 
 // packages/core/dist/tile-sampler.js
-var maxValueCombinations = 200;
+var maxValueKeys = 500;
+var maxVariantsPerKey = 20;
 async function sampleSourceTiles(contract, options) {
   const sample = {
     attempted: [],
@@ -75093,7 +75168,7 @@ async function sampleSourceTiles(contract, options) {
         continue;
       }
       sample.retrieved.push(address);
-      mergeTile(sample, bytes, options.valueProperties);
+      mergeTile(sample, bytes, address.z, options.valueProperties, options.keyProperties);
     } catch (error52) {
       sample.failures.push(`${address.z}/${address.x}/${address.y}: ${error52 instanceof Error ? error52.message : String(error52)}`);
     }
@@ -75126,11 +75201,15 @@ function sampleAddresses(contract, maxTiles, sampleAt) {
     // centre, which for a small bounding box is as good a guess as exists.
     [[(west + east) / 2, (south + north) / 2]]
   );
-  const zooms = /* @__PURE__ */ new Set([minzoom, maxzoom]);
-  if (maxTiles > 2 && maxzoom > minzoom) {
-    zooms.add(Math.floor((minzoom + maxzoom) / 2));
+  const requested = Math.max(1, maxTiles);
+  const zooms = /* @__PURE__ */ new Set([minzoom]);
+  if (requested > 1) {
+    zooms.add(maxzoom);
   }
-  return [...zooms].sort((a, b2) => a - b2).slice(0, Math.max(1, maxTiles)).map((z3, index) => {
+  for (let step = 1; step < requested - 1 && zooms.size < requested; step += 1) {
+    zooms.add(clampZoom(minzoom + (maxzoom - minzoom) * step / (requested - 1)));
+  }
+  return [...zooms].sort((a, b2) => a - b2).slice(0, requested).map((z3, index) => {
     const [lon, lat] = anchors[index % anchors.length];
     return { z: z3, ...lonLatToTile(lon, lat, z3) };
   });
@@ -75159,11 +75238,12 @@ async function readTile(contract, address, timeoutMs) {
     return void 0;
   }
   const target = template.replace("{z}", String(address.z)).replace("{x}", String(address.x)).replace("{y}", String(address.y));
-  if (isHttpUrl(target)) {
-    const bytes = await readRemoteBytes(target, timeoutMs);
+  const resolved = resolveLocation(target, locationDir(contract.location));
+  if (isHttpUrl(resolved)) {
+    const bytes = await readRemoteBytes(resolved, timeoutMs);
     return bytes ? decompress(bytes) : void 0;
   }
-  return readLocalTile(resolveLocation(target, (0, import_node_path3.dirname)(contract.location)));
+  return readLocalTile(resolved);
 }
 async function readLocalTile(path) {
   try {
@@ -75185,8 +75265,9 @@ async function readMbtilesTile(location, address) {
     database.close();
   }
 }
-function mergeTile(sample, bytes, valueProperties) {
+function mergeTile(sample, bytes, zoom, valueProperties, keyProperties) {
   const tile = new VectorTile(new PbfReader(bytes));
+  const names = keyProperties?.size ? keyProperties : valueProperties;
   for (const [name, layer] of Object.entries(tile.layers)) {
     const observed = sample.layers.get(name) ?? {
       featureCount: 0,
@@ -75194,38 +75275,69 @@ function mergeTile(sample, bytes, valueProperties) {
       valueCombinations: []
     };
     observed.featureCount += layer.length;
-    const seen = new Set(observed.valueCombinations.map((combination) => JSON.stringify(combination)));
+    const seen = /* @__PURE__ */ new Map();
+    const variants = /* @__PURE__ */ new Map();
+    for (const combination of observed.valueCombinations) {
+      seen.set(combinationKey(combination), combination);
+      const key = nameKey(combination, names);
+      variants.set(key, (variants.get(key) ?? 0) + 1);
+    }
     for (let index = 0; index < layer.length; index += 1) {
-      const properties = layer.feature(index).properties;
+      const feature = layer.feature(index);
+      const properties = feature.properties;
       for (const property of Object.keys(properties)) {
         observed.properties.add(property);
       }
       if (!valueProperties?.size) {
         continue;
       }
-      const combination = {};
+      const combination = {
+        properties: {},
+        geometryType: feature.type,
+        zooms: [zoom]
+      };
       for (const property of valueProperties) {
         const value = properties[property];
         if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-          combination[property] = String(value);
+          combination.properties[property] = value;
         }
       }
-      if (Object.keys(combination).length === 0) {
+      if (Object.keys(combination.properties).length === 0) {
         continue;
       }
-      const key = JSON.stringify(combination);
-      if (seen.has(key)) {
+      const key = combinationKey(combination);
+      const existing = seen.get(key);
+      if (existing) {
+        if (!existing.zooms.includes(zoom)) {
+          existing.zooms.push(zoom);
+        }
         continue;
       }
-      if (observed.valueCombinations.length >= maxValueCombinations) {
+      const group = nameKey(combination, names);
+      const kept = variants.get(group);
+      if (kept === void 0 && variants.size >= maxValueKeys) {
         observed.truncatedCombinations = true;
         continue;
       }
-      seen.add(key);
+      if (kept !== void 0 && kept >= maxVariantsPerKey) {
+        observed.truncatedCombinations = true;
+        continue;
+      }
+      variants.set(group, (kept ?? 0) + 1);
+      seen.set(key, combination);
       observed.valueCombinations.push(combination);
     }
     sample.layers.set(name, observed);
   }
+}
+function combinationKey(combination) {
+  return JSON.stringify([combination.geometryType, combination.properties]);
+}
+function nameKey(combination, names) {
+  if (!names?.size) {
+    return "";
+  }
+  return JSON.stringify([...names].map((property) => combination.properties[property] ?? null));
 }
 function decompress(bytes) {
   if (bytes.length > 1 && bytes[0] === 31 && bytes[1] === 139) {
@@ -75264,7 +75376,7 @@ async function checkStyleContract(options) {
   const sampleTiles = options.sampleTiles ?? true;
   const absenceSeverity = options.sampledAbsenceSeverity ?? "info";
   const stylePath = resolveLocation(options.stylePath);
-  const styleDir = (0, import_node_path4.dirname)(stylePath);
+  const styleDir = locationDir(stylePath);
   const style = options.styleText === void 0 ? await readJson(stylePath, timeoutMs) : parseStyleText(options.styleText);
   const findings = [];
   const incompleteChecks = [];
@@ -75274,7 +75386,7 @@ async function checkStyleContract(options) {
   if (styleHash) {
     artifactHashes[stylePath] = styleHash;
   }
-  const styleErrors = (0, import_maplibre_gl_style_spec.validateStyleMin)(style);
+  const styleErrors = (0, import_maplibre_gl_style_spec2.validateStyleMin)(style);
   for (const error52 of styleErrors) {
     findings.push({
       id: "style-spec.invalid",
@@ -75349,8 +75461,16 @@ async function checkStyleContract(options) {
       message: `Source override ${source.id} was provided but the style does not define that source.`
     });
   }
+  const layers = Array.isArray(style.layers) ? style.layers : [];
   const usage = collectStyleUsage(style);
-  const valueProperties = iconTemplateProperties(usage.iconTemplates);
+  const nameProperties = iconTemplateProperties(usage.iconTemplates);
+  const valueProperties = new Set(nameProperties);
+  for (const template of usage.iconTemplates) {
+    const layer = layers.find((candidate) => candidate.id === template.layerId);
+    for (const property of filterInputs(layer?.filter).properties) {
+      valueProperties.add(property);
+    }
+  }
   const samples = /* @__PURE__ */ new Map();
   if (sampleTiles) {
     for (const [sourceId, contract] of contracts) {
@@ -75358,6 +75478,7 @@ async function checkStyleContract(options) {
         timeoutMs,
         allowNetwork,
         valueProperties,
+        keyProperties: nameProperties,
         ...options.sampleAt === void 0 ? {} : { sampleAt: options.sampleAt },
         ...options.maxSampleTiles === void 0 ? {} : { maxTiles: options.maxSampleTiles }
       });
@@ -75370,7 +75491,6 @@ async function checkStyleContract(options) {
     status: tileSampleStatus(sampleTiles, contracts, samples),
     message: sampleTiles ? "Sampled vector tiles for observed layers and properties." : "Tile sampling was disabled; checks used declared metadata only."
   });
-  const layers = Array.isArray(style.layers) ? style.layers : [];
   for (const layer of layers) {
     inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity);
   }
@@ -75382,9 +75502,10 @@ async function checkStyleContract(options) {
   await inspectSprite(style, usage, layers, samples, styleDir, timeoutMs, allowNetwork, findings, incompleteChecks);
   await inspectGlyphs(style, usage.fontStacks, styleDir, timeoutMs, allowNetwork, incompleteChecks);
   inspectExpressionProperties(layers, contracts, samples, usage.properties, findings, absenceSeverity);
+  const assetCategories = /* @__PURE__ */ new Set(["glyph", "sprite", "icon"]);
   checks.push({
     id: "assets",
-    status: incompleteChecks.some((check2) => check2.category === "glyph" || check2.category === "sprite" || check2.category === "icon") ? "incomplete" : "passed",
+    status: findings.some((finding) => assetCategories.has(finding.category) && finding.severity === "broken") ? "failed" : incompleteChecks.some((check2) => assetCategories.has(check2.category)) ? "incomplete" : "passed",
     message: "Checked glyph and sprite references."
   });
   if (options.canaries?.length) {
@@ -75591,7 +75712,7 @@ function tileSampleStatus(enabled, contracts, samples) {
   if (!enabled || contracts.size === 0) {
     return "incomplete";
   }
-  const usable = [...samples.values()].filter((sample) => !sample.skipped && sample.failures.length === 0);
+  const usable = [...samples.values()].filter((sample) => !sample.skipped && sample.failures.length === 0 && sample.retrieved.length > 0);
   return usable.length === samples.size ? "passed" : "incomplete";
 }
 function inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity) {
@@ -75738,7 +75859,7 @@ async function inspectSprite(style, usage, layers, samples, styleDir, timeoutMs,
     }
   }
   const declared = new Set(sources.map((source) => source.id ?? ""));
-  function resolve4(icon) {
+  function resolve3(icon) {
     const separator = namespaced ? icon.indexOf(":") : -1;
     const spriteId = separator === -1 ? "" : icon.slice(0, separator);
     const name = separator === -1 ? icon : icon.slice(separator + 1);
@@ -75766,7 +75887,7 @@ async function inspectSprite(style, usage, layers, samples, styleDir, timeoutMs,
     };
   }
   for (const icon of iconImages) {
-    const resolved = resolve4(icon);
+    const resolved = resolve3(icon);
     if (resolved.kind === "unknown-sprite") {
       findings.push({
         id: `sprite.icon.${icon}.unknown-sprite`,
@@ -75788,9 +75909,9 @@ async function inspectSprite(style, usage, layers, samples, styleDir, timeoutMs,
       });
     }
   }
-  inspectDataDrivenIcons(usage.iconTemplates, layers, samples, resolve4, findings, incompleteChecks);
+  inspectDataDrivenIcons(usage.iconTemplates, layers, samples, resolve3, findings, incompleteChecks);
 }
-function inspectDataDrivenIcons(templates, layers, samples, resolve4, findings, incompleteChecks) {
+function inspectDataDrivenIcons(templates, layers, samples, resolve3, findings, incompleteChecks) {
   if (templates.length === 0) {
     return;
   }
@@ -75820,15 +75941,31 @@ function inspectDataDrivenIcons(templates, layers, samples, resolve4, findings, 
       });
       continue;
     }
+    const reaches = layerReachability(layer);
+    if (!reaches) {
+      incompleteChecks.push({
+        id: `layer.${template.layerId}.icon-from-data.filter-unevaluable`,
+        category: "icon",
+        ...sourceId === void 0 ? {} : { sourceId },
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, but its filter cannot be decided from a sampled feature, so which icons it renders could not be checked.`,
+        evidence: { properties, filter: layer?.filter }
+      });
+      continue;
+    }
     const missing = /* @__PURE__ */ new Map();
     let checked = 0;
+    let unreachable = 0;
     for (const combination of combinations) {
-      const name = renderIconName(template.parts, combination);
+      if (!reaches(combination)) {
+        unreachable += 1;
+        continue;
+      }
+      const name = renderIconName(template.parts, combination.properties);
       if (name === void 0) {
         continue;
       }
       checked += 1;
-      const resolved = resolve4(name);
+      const resolved = resolve3(name);
       if (resolved.kind === "missing" || resolved.kind === "unknown-sprite") {
         missing.set(name, {
           suggestion: resolved.suggestion,
@@ -75841,10 +75978,19 @@ function inspectDataDrivenIcons(templates, layers, samples, resolve4, findings, 
         id: `layer.${template.layerId}.icon-from-data.${properties.join("+")}`,
         category: "icon",
         ...sourceId === void 0 ? {} : { sourceId },
-        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and no sampled feature carried every one of those properties, so the icons it renders could not be checked.`,
-        evidence: { properties }
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and no sampled feature that its filter admits carried every one of those properties, so the icons it renders could not be checked.`,
+        evidence: { properties, ...unreachable > 0 ? { rejectedByFilter: unreachable } : {} }
       });
       continue;
+    }
+    if (sampled?.truncatedCombinations) {
+      incompleteChecks.push({
+        id: `layer.${template.layerId}.icon-from-data.sample-truncated`,
+        category: "icon",
+        ...sourceId === void 0 ? {} : { sourceId },
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and source-layer ${sourceLayer} carried more distinct values than sampling retains, so some of the icons it renders were not checked.`,
+        evidence: { properties, sampledCombinations: checked }
+      });
     }
     for (const [name, detail] of missing) {
       findings.push({
@@ -75863,11 +76009,37 @@ function inspectDataDrivenIcons(templates, layers, samples, resolve4, findings, 
         evidence: {
           properties,
           sampledCombinations: checked,
+          ...unreachable > 0 ? { rejectedByFilter: unreachable } : {},
           ...sampled?.truncatedCombinations ? { truncatedSample: true } : {}
         }
       });
     }
   }
+}
+function layerReachability(layer) {
+  if (!layer || layer.filter === void 0) {
+    return () => true;
+  }
+  const { evaluable } = filterInputs(layer.filter);
+  if (!evaluable) {
+    return void 0;
+  }
+  let compiled;
+  try {
+    compiled = (0, import_maplibre_gl_style_spec2.featureFilter)(layer.filter, `layers.${String(layer.id)}.filter`);
+  } catch {
+    return void 0;
+  }
+  if (compiled.needGeometry) {
+    return void 0;
+  }
+  const layerMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
+  const layerMax = typeof layer.maxzoom === "number" ? layer.maxzoom : 24;
+  return (feature) => {
+    const drawn = feature.zooms.filter((zoom) => zoom >= layerMin && zoom <= layerMax);
+    const zooms = drawn.length > 0 ? drawn : [Math.floor((layerMin + layerMax) / 2)];
+    return zooms.some((zoom) => compiled.filter({ zoom }, { type: feature.geometryType, properties: feature.properties }));
+  };
 }
 async function inspectGlyphs(style, fontStacks, styleDir, timeoutMs, allowNetwork, incompleteChecks) {
   if (!style.glyphs || fontStacks.size === 0) {
@@ -76033,7 +76205,7 @@ function levenshtein(a, b2) {
 async function runAction() {
   const style = getInput("style", { required: true });
   const sources = parseSources(getInput("sources"));
-  const failThreshold = getInput("fail-threshold") || "broken";
+  const failThreshold = parseSeverity(getInput("fail-threshold"));
   const reportPath = getInput("report") || "maptiles-doctor-report.json";
   const report = await checkStyleContract({
     stylePath: style,
@@ -76056,11 +76228,25 @@ async function runAction() {
     notice(`${incomplete.category}: ${incomplete.message}`);
   }
   if (report.status === "failed") {
-    setFailed(`MapTiles Doctor found ${report.summary.broken} broken contract issue(s).`);
+    const failing = report.findings.filter(
+      (finding) => severityRank[finding.severity] >= severityRank[failThreshold]
+    ).length;
+    setFailed(
+      `MapTiles Doctor found ${failing} contract issue(s) at or above ${failThreshold}.`
+    );
   }
 }
 function isTrue(value) {
   return value.trim().toLowerCase() === "true";
+}
+function parseSeverity(value) {
+  const normalized = value.trim() || "broken";
+  if (Object.hasOwn(severityRank, normalized)) {
+    return normalized;
+  }
+  throw new Error(
+    `Invalid fail-threshold "${value}". Expected one of: ${Object.keys(severityRank).join(", ")}.`
+  );
 }
 function parseSources(value) {
   return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {

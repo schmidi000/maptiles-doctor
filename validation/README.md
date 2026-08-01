@@ -32,7 +32,7 @@ and committing them would turn provider-side edits into repo diffs.
 
 ## Deliberately not a CI gate
 
-The harness always exits 0 unless the harness itself broke. It is not part of
+`validate:real` always exits 0 unless the harness itself broke. It is not part of
 `npm run check`, for two reasons:
 
 1. It depends on third-party uptime. A provider outage is not a regression here.
@@ -74,5 +74,19 @@ Two rules keep the number honest:
 
 A mutation targeting a specific check asserts which check caught it. Without
 that, the data-driven icon seed scored a pass off the static icon check.
+
+Unlike `validate:real`, this one exits on its verdict — a gate that printed
+`NOT MET` and exited 0 either way was not a gate:
+
+| Exit | Verdict              | Meaning                                                        |
+| ---- | -------------------- | -------------------------------------------------------------- |
+| 0    | MET                  | 8 or more of the applicable mutations were caught.               |
+| 1    | NOT MET              | The checker missed too many. A detection regression.             |
+| 3    | CANNOT BE EVALUATED  | Fewer than 8 mutations are expressible against this style.       |
+| 2    | —                    | Prerequisite missing: no built CLI, or no cached style.          |
+
+Exit 3 is deliberately not folded into exit 1. Nothing was proven about
+detection, which is not the same answer as "the checker missed too many", and a
+caller choosing to tolerate it should not have to tolerate a real regression too.
 
 Results are in `FINDINGS.md`.

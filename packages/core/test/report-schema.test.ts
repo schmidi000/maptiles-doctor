@@ -72,6 +72,23 @@ describe("doctorReportSchema", () => {
     expect(() => parseDoctorReport(report)).toThrow(/summary\.broken/);
   });
 
+  // The published JSON Schema sets `additionalProperties: false`. Returning the
+  // input rather than the parsed value handed unknown keys straight back, so the
+  // runtime parser accepted documents the schema it advertises rejects.
+  it("strips unknown keys so the runtime parser agrees with the published schema", () => {
+    const report = { ...validReport(), unexpected: "kept" };
+
+    expect(doctorReportJsonSchema().additionalProperties).toBe(false);
+    expect(parseDoctorReport(report)).not.toHaveProperty("unexpected");
+  });
+
+  it("strips unknown keys nested inside a finding", () => {
+    const report = validReport();
+    (report.findings[0] as Record<string, unknown>).unexpected = "kept";
+
+    expect(parseDoctorReport(report).findings[0]).not.toHaveProperty("unexpected");
+  });
+
   it("rejects a non-timestamp generatedAt", () => {
     const report = { ...validReport(), generatedAt: "yesterday" };
 

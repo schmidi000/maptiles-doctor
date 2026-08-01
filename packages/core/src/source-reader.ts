@@ -9,17 +9,17 @@ export async function readSourceContract(
   location: string,
   timeoutMs: number
 ): Promise<SourceContract> {
-  const lower = location.toLowerCase();
+  const path = locationPath(location).toLowerCase();
 
-  if (lower.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
+  if (path.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
     return readPmtilesSource(id, location);
   }
 
-  if (lower.endsWith(".mbtiles")) {
+  if (path.endsWith(".mbtiles")) {
     return readMbtilesSource(id, location);
   }
 
-  if (lower.endsWith(".json") || isHttpUrl(location)) {
+  if (path.endsWith(".json") || isHttpUrl(location)) {
     return readTileJsonSource(id, location, timeoutMs);
   }
 
@@ -29,6 +29,26 @@ export async function readSourceContract(
     kind: "unknown",
     vectorLayers: []
   };
+}
+
+/**
+ * The path part of a location, which is what names its format. A signed archive
+ * arrives as `https://host/world.pmtiles?token=…`, and matching `.pmtiles`
+ * against the whole string misses it, sending a binary archive to the TileJSON
+ * reader to be parsed as JSON. The full location is still what gets requested.
+ */
+function locationPath(location: string): string {
+  const normalized = location.startsWith("pmtiles://")
+    ? location.slice("pmtiles://".length)
+    : location;
+  if (!isHttpUrl(normalized)) {
+    return normalized;
+  }
+  try {
+    return new URL(normalized).pathname;
+  } catch {
+    return normalized;
+  }
 }
 
 export function openPmtiles(location: string): PMTiles {

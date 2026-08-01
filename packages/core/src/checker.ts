@@ -1,19 +1,29 @@
-import { dirname, resolve } from "node:path";
 import {
+  featureFilter,
   validateStyleMin,
+  type FeatureFilter,
+  type FilterSpecification,
   type LayerSpecification,
   type StyleSpecification
 } from "@maplibre/maplibre-gl-style-spec";
 import { canaryDiffThreshold, runVisualCanaries } from "./canary.js";
 import {
   collectStyleUsage,
+  filterInputs,
   iconTemplateProperties,
   renderIconName,
   type IconNameTemplate,
   type StyleUsage
 } from "./expression.js";
 import { parseDoctorReport } from "./report-schema.js";
-import { hashLocalFile, headOrGetOk, isHttpUrl, readJson, resolveLocation } from "./io.js";
+import {
+  hashLocalFile,
+  headOrGetOk,
+  isHttpUrl,
+  locationDir,
+  readJson,
+  resolveLocation
+} from "./io.js";
 import { inlineSourceContract, readSourceContract } from "./source-reader.js";
 import { sampleSourceTiles } from "./tile-sampler.js";
 import {
@@ -22,6 +32,7 @@ import {
   type DoctorCheckOptions,
   type DoctorReport,
   type Finding,
+  type SampledFeature,
   type Severity,
   type SourceContract,
   type TileSample,
@@ -38,7 +49,7 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
   // project that knows its tiles are dense raise it.
   const absenceSeverity: Severity = options.sampledAbsenceSeverity ?? "info";
   const stylePath = resolveLocation(options.stylePath);
-  const styleDir = dirname(stylePath);
+  const styleDir = locationDir(stylePath);
   const style =
     options.styleText === undefined
       ? await readJson<StyleSpecification>(stylePath, timeoutMs)
@@ -147,10 +158,23 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
     });
   }
 
+  const layers = Array.isArray(style.layers) ? style.layers : [];
+
   // Collected before sampling: a data-driven `icon-image` names the properties
-  // whose values have to be read out of the tiles to know what it produces.
+  // whose values have to be read out of the tiles to know what it produces, and
+  // its layer's filter names the ones that decide whether a feature reaches the
+  // layer to produce anything at all.
   const usage = collectStyleUsage(style);
-  const valueProperties = iconTemplateProperties(usage.iconTemplates);
+  const nameProperties = iconTemplateProperties(usage.iconTemplates);
+  const valueProperties = new Set(nameProperties);
+  for (const template of usage.iconTemplates) {
+    const layer = layers.find((candidate) => candidate.id === template.layerId) as
+      | Record<string, unknown>
+      | undefined;
+    for (const property of filterInputs(layer?.filter).properties) {
+      valueProperties.add(property);
+    }
+  }
 
   const samples = new Map<string, TileSample>();
   if (sampleTiles) {
@@ -159,6 +183,7 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
         timeoutMs,
         allowNetwork,
         valueProperties,
+        keyProperties: nameProperties,
         ...(options.sampleAt === undefined ? {} : { sampleAt: options.sampleAt }),
         ...(options.maxSampleTiles === undefined ? {} : { maxTiles: options.maxSampleTiles })
       });
@@ -174,7 +199,6 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
       : "Tile sampling was disabled; checks used declared metadata only."
   });
 
-  const layers = Array.isArray(style.layers) ? style.layers : [];
   for (const layer of layers) {
     inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity);
   }
@@ -212,14 +236,19 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
     absenceSeverity
   );
 
+  // A check reports on its own findings first. Reading only the incomplete list
+  // let a report carry a broken `sprite.icon.*.missing` finding and an `assets`
+  // check that said `passed`, which is not something a consumer can act on.
+  const assetCategories = new Set(["glyph", "sprite", "icon"]);
   checks.push({
     id: "assets",
-    status: incompleteChecks.some(
-      (check) =>
-        check.category === "glyph" || check.category === "sprite" || check.category === "icon"
+    status: findings.some(
+      (finding) => assetCategories.has(finding.category) && finding.severity === "broken"
     )
-      ? "incomplete"
-      : "passed",
+      ? "failed"
+      : incompleteChecks.some((check) => assetCategories.has(check.category))
+        ? "incomplete"
+        : "passed",
     message: "Checked glyph and sprite references."
   });
 
@@ -500,8 +529,11 @@ function tileSampleStatus(
   if (!enabled || contracts.size === 0) {
     return "incomplete";
   }
+  // A sample that read nothing is not a clean sample. Counting it as usable
+  // because nothing threw reported `tile-sample: passed` next to a
+  // `no-sampled-tiles` finding on the very same source.
   const usable = [...samples.values()].filter(
-    (sample) => !sample.skipped && sample.failures.length === 0
+    (sample) => !sample.skipped && sample.failures.length === 0 && sample.retrieved.length > 0
   );
   return usable.length === samples.size ? "passed" : "incomplete";
 }
@@ -796,6 +828,13 @@ async function inspectSprite(
  * one, so the sampled tiles are the only place its names exist. Each sampled
  * combination of the properties it reads produces one candidate name, which the
  * sprite index can then answer for.
+ *
+ * Only features the layer can actually draw count. A layer's `filter` is a hard
+ * predicate — `poi_transit` accepts three values of `class` out of the hundreds
+ * its source-layer carries, and three road-shield layers require
+ * `ref_length <= 6` — so feeding it every value in the source-layer asked the
+ * sprite for icons the style would never request. Twenty of the sixty-two names
+ * reported against one production style were unreachable that way.
  */
 function inspectDataDrivenIcons(
   templates: IconNameTemplate[],
@@ -841,10 +880,27 @@ function inspectDataDrivenIcons(
       continue;
     }
 
+    const reaches = layerReachability(layer);
+    if (!reaches) {
+      incompleteChecks.push({
+        id: `layer.${template.layerId}.icon-from-data.filter-unevaluable`,
+        category: "icon",
+        ...(sourceId === undefined ? {} : { sourceId }),
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, but its filter cannot be decided from a sampled feature, so which icons it renders could not be checked.`,
+        evidence: { properties, filter: layer?.filter }
+      });
+      continue;
+    }
+
     const missing = new Map<string, { suggestion?: string | undefined; path?: string }>();
     let checked = 0;
+    let unreachable = 0;
     for (const combination of combinations) {
-      const name = renderIconName(template.parts, combination);
+      if (!reaches(combination)) {
+        unreachable += 1;
+        continue;
+      }
+      const name = renderIconName(template.parts, combination.properties);
       if (name === undefined) {
         continue;
       }
@@ -863,10 +919,22 @@ function inspectDataDrivenIcons(
         id: `layer.${template.layerId}.icon-from-data.${properties.join("+")}`,
         category: "icon",
         ...(sourceId === undefined ? {} : { sourceId }),
-        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and no sampled feature carried every one of those properties, so the icons it renders could not be checked.`,
-        evidence: { properties }
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and no sampled feature that its filter admits carried every one of those properties, so the icons it renders could not be checked.`,
+        evidence: { properties, ...(unreachable > 0 ? { rejectedByFilter: unreachable } : {}) }
       });
       continue;
+    }
+
+    // Retention is bounded, and a bound that is not reported reads as "every
+    // name resolved" when it means "not every name was looked at".
+    if (sampled?.truncatedCombinations) {
+      incompleteChecks.push({
+        id: `layer.${template.layerId}.icon-from-data.sample-truncated`,
+        category: "icon",
+        ...(sourceId === undefined ? {} : { sourceId }),
+        message: `Layer ${template.layerId} builds its icon name from ${properties.join(", ")}, and source-layer ${sourceLayer} carried more distinct values than sampling retains, so some of the icons it renders were not checked.`,
+        evidence: { properties, sampledCombinations: checked }
+      });
     }
 
     for (const [name, detail] of missing) {
@@ -886,11 +954,61 @@ function inspectDataDrivenIcons(
         evidence: {
           properties,
           sampledCombinations: checked,
+          ...(unreachable > 0 ? { rejectedByFilter: unreachable } : {}),
           ...(sampled?.truncatedCombinations ? { truncatedSample: true } : {})
         }
       });
     }
   }
+}
+
+/**
+ * Decides whether a sampled feature can reach a layer, or `undefined` when the
+ * layer's filter cannot be answered from one — `within` needs real geometry and
+ * feature state has no meaning outside a running map. Guessing there would trade
+ * the false positives this replaces for a different set of them.
+ *
+ * The filter is evaluated at a zoom the layer actually renders, preferring one
+ * the feature was really sampled at. A sample of three tiles is far too sparse
+ * to conclude anything from the layer's zoom range on its own: each zoom is
+ * probed at a different place, so a value seen only at z7 says nothing about
+ * whether it exists at z14.
+ */
+function layerReachability(
+  layer: Record<string, unknown> | undefined
+): ((feature: SampledFeature) => boolean) | undefined {
+  if (!layer || layer.filter === undefined) {
+    return () => true;
+  }
+
+  const { evaluable } = filterInputs(layer.filter);
+  if (!evaluable) {
+    return undefined;
+  }
+
+  let compiled: FeatureFilter;
+  try {
+    compiled = featureFilter(layer.filter as FilterSpecification, `layers.${String(layer.id)}.filter`);
+  } catch {
+    return undefined;
+  }
+  if (compiled.needGeometry) {
+    return undefined;
+  }
+
+  const layerMin = typeof layer.minzoom === "number" ? layer.minzoom : 0;
+  const layerMax = typeof layer.maxzoom === "number" ? layer.maxzoom : 24;
+
+  return (feature) => {
+    const drawn = feature.zooms.filter((zoom) => zoom >= layerMin && zoom <= layerMax);
+    const zooms = drawn.length > 0 ? drawn : [Math.floor((layerMin + layerMax) / 2)];
+    return zooms.some((zoom) =>
+      compiled.filter(
+        { zoom },
+        { type: feature.geometryType as 1 | 2 | 3, properties: feature.properties }
+      )
+    );
+  };
 }
 
 async function inspectGlyphs(

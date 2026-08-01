@@ -1,5 +1,7 @@
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { activate, deactivate, isStyleDocument } from "../src/extension.js";
 import {
   commands,
@@ -225,6 +227,25 @@ describe("the open report command", () => {
     expect(window.panels[0]?.webview.html).toContain("missing source-layer building");
   });
 
+  // The cache was keyed by document URI alone, so a report produced from text
+  // the buffer no longer holds was served as a hit and the panel showed the
+  // previous edit's result.
+  it("re-checks an edited buffer instead of serving the previous report", async () => {
+    activateExtension();
+    const document = styleDocument("broken-style");
+    openInEditor(document);
+    workspace.configuration = { sources: { openmaptiles: tilejson } };
+
+    await runCommand("maptilesDoctor.check");
+    expect(window.panels).toHaveLength(0);
+
+    // Fixing the source-layer is exactly what makes the cached report wrong.
+    document.edit(document.getText().replace(/"building"/g, '"buildings"'));
+    await runCommand("maptilesDoctor.openReport");
+
+    expect(window.panels[0]?.webview.html).not.toContain("missing source-layer building");
+  });
+
   it("runs a check first when no report is cached", async () => {
     const { collection } = activateExtension();
     const document = styleDocument("simple-style");
@@ -279,6 +300,22 @@ describe("editor events", () => {
     await fire("save", document);
 
     expect(diagnosticsFor(collection, document).length).toBeGreaterThan(0);
+  });
+
+  // Returning early left the last run's diagnostics on screen, so a buffer
+  // edited out of style shape kept being reported on as though it still were.
+  it("clears diagnostics when a checked buffer stops being style-shaped", async () => {
+    const { collection } = activateExtension();
+    const document = styleDocument("broken-style");
+    workspace.configuration = { sources: { openmaptiles: tilejson } };
+
+    await fire("save", document);
+    expect(diagnosticsFor(collection, document).length).toBeGreaterThan(0);
+
+    document.edit(JSON.stringify({ version: 8 }));
+    await fire("save", document);
+
+    expect(collection.entries.has(document.uri.fsPath)).toBe(false);
   });
 
   it("ignores JSON files that are not styles", async () => {
@@ -344,5 +381,90 @@ describe("deactivate", () => {
     // With the cache gone, opening the report has to run a fresh check.
     await runCommand("maptilesDoctor.openReport");
     expect(window.panels[0]?.webview.html).toContain("Status: passed");
+  });
+});
+
+// Open, save, and configuration changes each start a check, and a check reads
+// the network. Without a generation guard a slower older run finishes last and
+// overwrites the newer report and its diagnostics.
+describe("overlapping checks", () => {
+  let server: Server;
+  let origin = "";
+
+  beforeAll(async () => {
+    server = createServer((request, response) => {
+      // Slow enough that the offline check started after it still finishes
+      // first, which is the ordering that made the race visible.
+      setTimeout(() => {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            tilejson: "3.0.0",
+            minzoom: 0,
+            maxzoom: 14,
+            tiles: [`${origin}/{z}/{x}/{y}.mvt`],
+            vector_layers: [{ id: "poi", fields: { name: "String" }, minzoom: 0, maxzoom: 14 }]
+          })
+        );
+      }, 250);
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  function remoteStyleDocument(): StubDocument {
+    return createDocument(resolve(fixtures, "remote-source/style.json"), {
+      text: JSON.stringify({
+        version: 8,
+        sources: { basemap: { type: "vector", url: `${origin}/tilejson.json` } },
+        layers: [
+          {
+            id: "poi-labels",
+            type: "symbol",
+            source: "basemap",
+            "source-layer": "poi",
+            layout: { "text-field": ["get", "name"] }
+          }
+        ]
+      })
+    });
+  }
+
+  it("keeps the newer check's diagnostics when an older one finishes last", async () => {
+    const { collection } = activateExtension();
+    const document = remoteStyleDocument();
+    openInEditor(document);
+
+    // The online check reaches the delayed server; the offline one started
+    // after it makes no request at all and completes immediately.
+    workspace.configuration = { offline: false, timeoutMs: 5_000 };
+    const older = fire("save", document);
+    workspace.configuration = { offline: true, timeoutMs: 5_000 };
+    const newer = fire("save", document);
+    await Promise.all([older, newer]);
+
+    expect(
+      diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code)
+    ).toContain("source.basemap.network-disabled");
+  });
+
+  it("keeps the newer check's cached report when an older one finishes last", async () => {
+    activateExtension();
+    const document = remoteStyleDocument();
+    openInEditor(document);
+
+    workspace.configuration = { offline: false, timeoutMs: 5_000 };
+    const older = fire("save", document);
+    workspace.configuration = { offline: true, timeoutMs: 5_000 };
+    const newer = fire("save", document);
+    await Promise.all([older, newer]);
+
+    await runCommand("maptilesDoctor.openReport");
+
+    expect(window.panels[0]?.webview.html).toContain("network access is disabled");
   });
 });

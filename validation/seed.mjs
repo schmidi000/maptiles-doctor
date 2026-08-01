@@ -199,12 +199,12 @@ const baselineIds = new Set([
   ...baseline.incompleteChecks.map((item) => item.id)
 ]);
 
+const contracts = await contractsFrom(original, baseline);
+
 const results = [];
 for (const mutation of mutations) {
   const style = JSON.parse(JSON.stringify(original));
-  // Contracts are only needed to know whether a mutation can be expressed; the
-  // baseline report carries enough for that.
-  const handle = mutation.applies(style, contractsFrom(baseline));
+  const handle = mutation.applies(style, contracts);
   if (!handle) {
     results.push({ ...mutation, applicable: false });
     console.log(`SKIP  ${mutation.id}: cannot be expressed against this style`);
@@ -263,12 +263,46 @@ async function check(name, style) {
   return JSON.parse(await readFile(output, "utf8"));
 }
 
-/** Source zoom ranges as the baseline report observed them. */
-function contractsFrom(baselineReport) {
+/**
+ * Source zoom ranges, read from the tilesets themselves.
+ *
+ * Inferring them from the baseline's zoom findings alone made a *healthy*
+ * source with `minzoom > 0` look like one starting at zoom 0, because a style
+ * with no zoom problems produces no zoom findings to read. The zoom mutation
+ * then reported as inapplicable against exactly the styles it can be expressed
+ * against, and quietly shrank the gate's denominator.
+ */
+async function contractsFrom(style, baselineReport) {
   const contracts = {};
   for (const finding of baselineReport.findings) {
     if (finding.category === "zoom" && finding.sourceId && finding.evidence) {
       contracts[finding.sourceId] = { minzoom: finding.evidence.sourceMin };
+    }
+  }
+
+  for (const [id, source] of Object.entries(style.sources ?? {})) {
+    if (contracts[id]) {
+      continue;
+    }
+    if (typeof source.minzoom === "number") {
+      contracts[id] = { minzoom: source.minzoom };
+      continue;
+    }
+    if (typeof source.url !== "string" || !/^https?:\/\//.test(source.url)) {
+      continue;
+    }
+    try {
+      const response = await fetch(source.url, { signal: AbortSignal.timeout(timeoutMs) });
+      if (!response.ok) {
+        continue;
+      }
+      const tileJson = await response.json();
+      if (typeof tileJson.minzoom === "number") {
+        contracts[id] = { minzoom: tileJson.minzoom };
+      }
+    } catch {
+      // An unreadable source leaves the zoom mutation inapplicable, which is
+      // reported rather than silently counted either way.
     }
   }
   return contracts;
@@ -308,5 +342,19 @@ function report() {
   console.log(
     "\nAn incomplete check counts as caught: an unreachable artifact is meant to\n" +
       "report incomplete rather than pass, so surfacing it is the correct behavior."
+  );
+
+  // A gate that prints its verdict and exits 0 either way is not a gate. A run
+  // that could not be evaluated gets its own code rather than being folded into
+  // failure: nothing was proven about detection, and that is not the same
+  // answer as "the checker missed too many".
+  if (verdict === "MET") {
+    return;
+  }
+  process.exitCode = verdict === "NOT MET" ? 1 : 3;
+  console.error(
+    verdict === "NOT MET"
+      ? `\nRelease gate NOT MET: ${caught.length} of ${applicable.length} caught, 8 required. (exit 1)`
+      : `\nRelease gate could not be evaluated against ${targetId}: only ${applicable.length} of ${mutations.length} mutations are expressible. (exit 3)`
   );
 }
