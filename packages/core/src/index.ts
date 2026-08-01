@@ -1,7 +1,12 @@
 export { rewriteStyleForBrowser, runVisualCanaries } from "./canary.js";
-export { checkStyleContract } from "./checker.js";
+export { checkCategories, checkStyleContract } from "./checker.js";
 export { collectStyleUsage } from "./expression.js";
-export { doctorReportJsonSchema, doctorReportSchema, parseDoctorReport } from "./report-schema.js";
+export {
+  doctorReportJsonSchema,
+  doctorReportSchema,
+  findingCategories,
+  parseDoctorReport
+} from "./report-schema.js";
 export { readSourceContract } from "./source-reader.js";
 export { sampleAddresses, sampleSourceTiles } from "./tile-sampler.js";
 export type {

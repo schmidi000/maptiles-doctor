@@ -302,4 +302,47 @@ describe("CLI", () => {
       stderr.mockRestore();
     }
   });
+
+  // `value in severityRank` also answered yes for every inherited
+  // `Object.prototype` name. `--fail-threshold toString` validated, every
+  // severity comparison against a function came out false, and a report holding
+  // two broken findings exited 0 — a silent CI gate bypass.
+  it.each(["toString", "constructor", "hasOwnProperty", "__proto__"])(
+    "rejects the inherited property %s as a fail threshold",
+    async (value) => {
+      const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+      try {
+        const { code } = await check([brokenStyle, "--fail-threshold", value]);
+        expect(code).toBe(2);
+      } finally {
+        stderr.mockRestore();
+      }
+    }
+  );
+
+  it("still fails a broken style rather than passing it through an inherited threshold", async () => {
+    const { code, stdout } = await check([
+      brokenStyle,
+      "--source",
+      `openmaptiles=${tilejson}`,
+      "--format",
+      "json"
+    ]);
+
+    const report = JSON.parse(stdout);
+    expect(report.summary.broken).toBeGreaterThan(0);
+    expect(report.status).toBe("failed");
+    expect(code).toBe(1);
+  });
+
+  it("annotates info findings as notices, not warnings, for GitHub", async () => {
+    const { stdout } = await check([
+      resolve(root, "fixtures/stale-metadata/style.json"),
+      "--format",
+      "github"
+    ]);
+
+    expect(stdout).toContain("::notice title=expression-property::");
+    expect(stdout).not.toContain("::warning title=expression-property::");
+  });
 });

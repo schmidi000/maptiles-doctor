@@ -158,7 +158,11 @@ describe("runAction", () => {
 
     const report = JSON.parse(await readFile(reportPath, "utf8"));
     expect(report.findings[0].id).toBe("layer.buildings-by-class.property.class.not-sampled");
-    expect(calls.warning[0]).toContain("expression-property:");
+    // Sampled absence is `info` by design, so it annotates as a notice. Emitting
+    // it as a warning overstated weak evidence and buried the real warnings.
+    expect(report.findings[0].severity).toBe("info");
+    expect(calls.notice[0]).toContain("expression-property:");
+    expect(calls.warning).toHaveLength(0);
   });
 
   // An unrecognized threshold used to be cast straight through. Every severity

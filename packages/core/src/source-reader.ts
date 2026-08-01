@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import type DatabaseConstructor from "better-sqlite3";
 import { FetchSource, PMTiles, type RangeResponse, type Source } from "pmtiles";
 import type { SourceContract, VectorLayerContract } from "./types.js";
@@ -12,7 +12,7 @@ export async function readSourceContract(
   const path = locationPath(location).toLowerCase();
 
   if (path.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
-    return readPmtilesSource(id, location);
+    return readPmtilesSource(id, location, timeoutMs);
   }
 
   if (path.endsWith(".mbtiles")) {
@@ -51,17 +51,22 @@ function locationPath(location: string): string {
   }
 }
 
-export function openPmtiles(location: string): PMTiles {
+export function openPmtiles(location: string, timeoutMs: number): PMTiles {
   const normalized = location.startsWith("pmtiles://")
     ? location.slice("pmtiles://".length)
     : location;
-  return new PMTiles(
-    isHttpUrl(normalized) ? new FetchSource(normalized) : new LocalFileSource(normalized)
-  );
+  const source: Source = isHttpUrl(normalized)
+    ? new FetchSource(normalized)
+    : new LocalFileSource(normalized);
+  return new PMTiles(new TimeoutSource(source, timeoutMs));
 }
 
-async function readPmtilesSource(id: string, location: string): Promise<SourceContract> {
-  const pmtiles = openPmtiles(location);
+async function readPmtilesSource(
+  id: string,
+  location: string,
+  timeoutMs: number
+): Promise<SourceContract> {
+  const pmtiles = openPmtiles(location, timeoutMs);
   const [header, metadata] = await Promise.all([pmtiles.getHeader(), pmtiles.getMetadata()]);
   const metadataRecord = asRecord(metadata);
   return {
@@ -253,6 +258,38 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return undefined;
 }
 
+/**
+ * Applies the configured timeout to every PMTiles range read. The library takes
+ * an `AbortSignal` on `getZxy` but not on `getHeader` or `getMetadata`, and
+ * `FetchSource` has nowhere to put a default one, so a remote archive's header,
+ * directory, and metadata requests ran with no deadline at all — a hung host
+ * stalled the whole check indefinitely. Wrapping the `Source` is the one place
+ * that covers all four kinds of read.
+ */
+class TimeoutSource implements Source {
+  constructor(
+    private readonly inner: Source,
+    private readonly timeoutMs: number
+  ) {}
+
+  getKey(): string {
+    return this.inner.getKey();
+  }
+
+  async getBytes(
+    offset: number,
+    length: number,
+    signal?: AbortSignal,
+    etag?: string
+  ): Promise<RangeResponse> {
+    const timeout = AbortSignal.timeout(this.timeoutMs);
+    // A caller-supplied signal still has to win, so the two are combined rather
+    // than replaced.
+    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    return this.inner.getBytes(offset, length, combined, etag);
+  }
+}
+
 class LocalFileSource implements Source {
   constructor(private readonly path: string) {}
 
@@ -260,10 +297,22 @@ class LocalFileSource implements Source {
     return this.path;
   }
 
+  /**
+   * Reads only the requested range. PMTiles is built around small header,
+   * directory, metadata, and tile reads, so `readFile` of the whole archive per
+   * range allocated it many times over — fine for a fixture, an out-of-memory
+   * failure on a multi-gigabyte production archive.
+   */
   async getBytes(offset: number, length: number): Promise<RangeResponse> {
-    const handle = await readFile(this.path);
-    return {
-      data: handle.buffer.slice(handle.byteOffset + offset, handle.byteOffset + offset + length)
-    };
+    const handle = await open(this.path, "r");
+    try {
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buffer, 0, length, offset);
+      return {
+        data: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + bytesRead)
+      };
+    } finally {
+      await handle.close();
+    }
   }
 }

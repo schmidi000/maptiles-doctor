@@ -108,6 +108,12 @@ export interface CanaryRun {
   unavailable?: string;
   /** Sources dropped before rendering because a browser cannot read them. */
   unrenderableSources: Array<{ id: string; reason: string }>;
+  /**
+   * Layer ids removed along with those sources. Nothing the render says about
+   * these layers is evidence about the real style — they were not in the style
+   * that rendered.
+   */
+  droppedLayers: string[];
 }
 
 export interface TileAddress {

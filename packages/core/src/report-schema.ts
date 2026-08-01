@@ -1,9 +1,10 @@
 import { z } from "zod";
-import type { DoctorReport } from "./types.js";
+import type { DoctorReport, FindingCategory } from "./types.js";
 
 const severity = z.enum(["broken", "risky", "warning", "info"]);
 const checkStatus = z.enum(["passed", "failed", "incomplete"]);
-const category = z.enum([
+/** Every finding category, at runtime. Each one has to be owned by a check. */
+export const findingCategories = [
   "style-spec",
   "source",
   "source-layer",
@@ -14,7 +15,9 @@ const category = z.enum([
   "expression-property",
   "tile-availability",
   "visual-canary"
-]);
+] as const satisfies readonly FindingCategory[];
+
+const category = z.enum(findingCategories);
 
 const evidence = z.record(z.string(), z.unknown());
 

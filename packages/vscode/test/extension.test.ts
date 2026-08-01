@@ -468,3 +468,78 @@ describe("overlapping checks", () => {
     expect(window.panels[0]?.webview.html).toContain("network access is disabled");
   });
 });
+
+// The extension activates for `jsonc` and `isStyleDocument` accepts it, but core
+// parses with strict `JSON.parse`. A valid JSONC style was therefore recognized
+// as a style and immediately handed back a `check-failed` diagnostic for invalid
+// JSON — the wrapper claimed the document and then rejected it.
+describe("JSONC style documents", () => {
+  const jsoncText = `{
+  // A comment, which is the whole point of JSONC.
+  "version": 8,
+  "sources": {
+    "openmaptiles": { "type": "vector", "url": "./tilejson.json" }
+  },
+  "layers": [
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+    },
+  ],
+}`;
+
+  function jsoncDocument(): StubDocument {
+    return createDocument(resolve(fixtures, "simple-style/style.json"), {
+      text: jsoncText,
+      languageId: "jsonc"
+    });
+  }
+
+  it("is recognized as a style", () => {
+    expect(isStyleDocument(jsoncDocument() as never)).toBe(true);
+  });
+
+  it("is checked instead of rejected as invalid JSON", async () => {
+    const { collection } = activateExtension();
+    const document = jsoncDocument();
+    openInEditor(document);
+
+    await runCommand("maptilesDoctor.check");
+
+    const codes = diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code);
+    expect(codes).not.toContain("check-failed");
+  });
+
+  // A `json` document stays byte-for-byte what core and the CLI see, so the
+  // editor never reports clean on something CI would reject.
+  it("does not make comments acceptable in a plain JSON document", async () => {
+    const { collection } = activateExtension();
+    const document = createDocument(resolve(fixtures, "simple-style/style.json"), {
+      text: jsoncText
+    });
+    openInEditor(document);
+
+    await runCommand("maptilesDoctor.check");
+
+    expect(diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code)).toContain(
+      "check-failed"
+    );
+  });
+
+  it("still reports genuinely broken JSONC as a check failure", async () => {
+    const { collection } = activateExtension();
+    const document = createDocument(resolve(fixtures, "simple-style/style.json"), {
+      text: '{ "version": 8, "layers": [ }',
+      languageId: "jsonc"
+    });
+    openInEditor(document);
+
+    await runCommand("maptilesDoctor.check");
+
+    expect(diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code)).toContain(
+      "check-failed"
+    );
+  });
+});

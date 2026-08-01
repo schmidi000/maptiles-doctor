@@ -188,6 +188,36 @@ describe("sampleSourceTiles", () => {
     expect(sample.attempted).toEqual([]);
   });
 
+  // Classification tested the raw tile template, so a relative one under a
+  // remote style read as local: `allowNetwork: false` let the sampler through,
+  // and the reader — which does resolve the template — then fetched the tiles
+  // from the remote host. Air-gapped mode reached the network.
+  it("skips a source whose relative tile template resolves to a remote host", async () => {
+    const contract: SourceContract = {
+      id: "basemap",
+      location: "https://tiles.invalid.test/styles/basemap/style.json",
+      kind: "tilejson",
+      vectorLayers: [],
+      minzoom: 0,
+      maxzoom: 2,
+      tileUrls: ["../tiles/{z}/{x}/{y}.pbf"]
+    };
+
+    const sample = await sampleSourceTiles(contract, { ...options, allowNetwork: false });
+
+    expect(sample.skipped).toBe("Network access is disabled.");
+    expect(sample.attempted).toEqual([]);
+  });
+
+  it("still samples a relative tile template under a local style", async () => {
+    const contract = await readSourceContract("basemap", tilejson, 5_000);
+
+    const sample = await sampleSourceTiles(contract, { ...options, allowNetwork: false });
+
+    expect(sample.skipped).toBeUndefined();
+    expect(sample.retrieved.length).toBeGreaterThan(0);
+  });
+
   it("skips sources it cannot sample", async () => {
     const sample = await sampleSourceTiles(
       { id: "basemap", location: "/tmp/basemap.tiles", kind: "unknown", vectorLayers: [] },

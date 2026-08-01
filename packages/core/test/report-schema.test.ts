@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkStyleContract } from "../src/index.js";
+import { checkCategories, checkStyleContract, findingCategories } from "../src/index.js";
 import {
   doctorReportJsonSchema,
   doctorReportSchema,
@@ -132,5 +132,21 @@ describe("doctorReportJsonSchema", () => {
     for (const severity of ["broken", "risky", "warning", "info"]) {
       expect(schema).toContain(severity);
     }
+  });
+});
+
+// A report that ends `failed` has to name the check that explains it, so every
+// finding category belongs to exactly one check. Without this, an
+// `expression-property` finding could fail a report while every listed check
+// said `passed`, and nothing pointed a consumer at the cause.
+describe("check ownership of finding categories", () => {
+  const owned = Object.values(checkCategories).flat();
+
+  it("covers every category the schema publishes", () => {
+    expect([...owned].sort()).toEqual([...findingCategories].sort());
+  });
+
+  it("assigns each category to exactly one check", () => {
+    expect(new Set(owned).size).toBe(owned.length);
   });
 });

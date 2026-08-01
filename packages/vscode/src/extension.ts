@@ -1,4 +1,5 @@
 import { dirname, isAbsolute, resolve } from "node:path";
+import { parse, type ParseError } from "jsonc-parser";
 import * as vscode from "vscode";
 import {
   checkStyleContract,
@@ -137,6 +138,31 @@ async function checkQuietly(
   await runCheck(document, diagnostics);
 }
 
+/**
+ * Core parses a style with strict `JSON.parse`, so a JSONC buffer handed over
+ * verbatim came straight back as a `check-failed` diagnostic for invalid JSON —
+ * after the extension had activated for `jsonc` and claimed the document as a
+ * style. VS Code puts plenty of ordinary, comment-free style files in `jsonc`
+ * mode through file associations, so refusing them outright would stop checking
+ * valid styles; re-serializing what `jsonc-parser` read is what makes the claim
+ * honest.
+ *
+ * Only `jsonc` is normalized. A `json` document stays byte-for-byte what core
+ * and the CLI see, so the editor never reports clean on something CI rejects.
+ * Diagnostics are still anchored against the original buffer, which
+ * `jsonc-parser` reads directly.
+ */
+function styleTextForCore(document: vscode.TextDocument, text: string): string {
+  if (document.languageId !== "jsonc") {
+    return text;
+  }
+  const errors: ParseError[] = [];
+  const parsed: unknown = parse(text, errors, { allowTrailingComma: true });
+  // Anything the JSONC reader could not make sense of goes to core unchanged, so
+  // the invalid-JSON message a user sees describes their actual text.
+  return errors.length > 0 || parsed === undefined ? text : JSON.stringify(parsed);
+}
+
 async function runCheck(
   document: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection
@@ -158,7 +184,7 @@ async function runCheck(
     report = await checkStyleContract({
       stylePath: document.uri.fsPath,
       // The buffer, not the file: an editor has to report on what is on screen.
-      styleText: text,
+      styleText: styleTextForCore(document, text),
       sources: resolveSources(document, config.sources),
       failThreshold: config.failThreshold,
       allowNetwork: !config.offline,

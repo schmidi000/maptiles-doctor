@@ -18,8 +18,19 @@ export interface StyleUsage {
   iconImages: Set<string>;
   /** Names built from feature data, checkable only against sampled tiles. */
   iconTemplates: IconNameTemplate[];
+  /**
+   * Layers whose `icon-image` could not be reduced to the names it produces.
+   * The icons are neither checked nor silently assumed present: the sprite
+   * check reports them incomplete.
+   */
+  unresolvedIcons: UnresolvedIcon[];
   fontStacks: Set<string>;
   properties: Map<string, Set<string>>;
+}
+
+export interface UnresolvedIcon {
+  layerId: string;
+  reason: string;
 }
 
 /** Property names every icon template reads, so tile sampling can record them. */
@@ -59,6 +70,7 @@ export function collectStyleUsage(style: unknown): StyleUsage {
   const usage: StyleUsage = {
     iconImages: new Set<string>(),
     iconTemplates: [],
+    unresolvedIcons: [],
     fontStacks: new Set<string>(),
     properties: new Map<string, Set<string>>()
   };
@@ -74,12 +86,16 @@ export function collectStyleUsage(style: unknown): StyleUsage {
     scanValue(layerRecord?.filter, layerId, usage);
 
     const iconImage = asRecord(layerRecord?.layout)?.["icon-image"];
-    for (const parts of collectIconNames(iconImage)) {
+    const notes: string[] = [];
+    for (const parts of collectIconNames(iconImage, notes)) {
       if (parts.every((part) => "literal" in part)) {
         usage.iconImages.add(parts.map((part) => ("literal" in part ? part.literal : "")).join(""));
       } else {
         usage.iconTemplates.push({ layerId, parts });
       }
+    }
+    for (const reason of new Set(notes)) {
+      usage.unresolvedIcons.push({ layerId, reason });
     }
 
     const textFont = asRecord(layerRecord?.layout)?.["text-font"];
@@ -119,7 +135,7 @@ function scanValue(value: unknown, layerId: string, usage: StyleUsage): void {
  * Harvesting the string literals visible in the expression instead reported an
  * operator name and an empty string as missing icons; see validation/FINDINGS.md.
  */
-function collectIconNames(value: unknown): IconNamePart[][] {
+function collectIconNames(value: unknown, notes?: string[]): IconNamePart[][] {
   if (typeof value === "string") {
     const parts = parseTokens(value);
     return parts.length === 0 ? [] : [parts];
@@ -139,38 +155,72 @@ function collectIconNames(value: unknown): IconNamePart[][] {
       : [];
   }
   if (operator === "image") {
-    return collectIconNames(value[1]);
+    return collectIconNames(value[1], notes);
   }
   if (operator === "get") {
     return typeof value[1] === "string" ? [[{ property: value[1] }]] : [];
   }
   // A coercion or a fallback passes its arguments through unchanged.
   if (operator === "to-string" || operator === "coalesce") {
-    return value.slice(1).flatMap(collectIconNames);
+    return value.slice(1).flatMap((argument) => collectIconNames(argument, notes));
   }
   if (operator === "concat") {
-    // `concat` builds one name out of all its arguments in order, so an argument
-    // that cannot be modelled makes the whole name unknowable rather than
-    // contributing a fragment of one.
-    const parts: IconNamePart[] = [];
-    for (const argument of value.slice(1)) {
-      const resolved = collectIconNames(argument)[0];
-      if (!resolved) {
-        return [];
-      }
-      parts.push(...resolved);
-    }
-    return parts.length === 0 ? [] : [parts];
+    return collectConcatNames(value, notes);
   }
   if (operator === "match") {
-    return collectMatchNames(value);
+    return collectMatchNames(value, notes);
   }
   if (operator === "case" || operator === "step") {
-    return branchOutputs(value).flatMap(collectIconNames);
+    return branchOutputs(value).flatMap((branch) => collectIconNames(branch, notes));
   }
   // Anything else contributes only through its arguments. Index 0 is the
   // operator and is never an icon name.
-  return value.slice(1).flatMap(collectIconNames);
+  return value.slice(1).flatMap((argument) => collectIconNames(argument, notes));
+}
+
+/**
+ * Enough combinations to cover a realistic `concat` over a couple of branches
+ * without letting nested `match` expressions multiply into thousands of names
+ * that would each be looked up in the sprite.
+ */
+const maxIconNameCombinations = 64;
+
+/**
+ * `concat` builds one name out of all its arguments in order, so the names it
+ * can produce are the combinations of what each argument can produce. Taking
+ * only the first alternative of each argument — `collectIconNames(argument)[0]`
+ * — silently dropped every branch after the first: `["concat", "prefix-",
+ * ["case", …, "one", "two"]]` yielded `prefix-one` alone, and a sprite missing
+ * `prefix-two` passed the check.
+ *
+ * An argument that cannot be reduced, or a product too large to enumerate,
+ * makes the whole name unknowable. That is recorded as a note so the sprite
+ * check can report it incomplete rather than quietly checking nothing.
+ */
+function collectConcatNames(value: unknown[], notes?: string[]): IconNamePart[][] {
+  let combinations: IconNamePart[][] = [[]];
+
+  for (const argument of value.slice(1)) {
+    const alternatives = collectIconNames(argument, notes);
+    if (alternatives.length === 0) {
+      // A string always reduces to a known fragment; an empty one — `""`, which
+      // means "draw no icon" on its own — simply contributes nothing here.
+      if (typeof argument === "string") {
+        continue;
+      }
+      notes?.push("an argument that cannot be reduced to a name");
+      return [];
+    }
+    if (combinations.length * alternatives.length > maxIconNameCombinations) {
+      notes?.push(`more than ${maxIconNameCombinations} possible names`);
+      return [];
+    }
+    combinations = combinations.flatMap((prefix) =>
+      alternatives.map((alternative) => [...prefix, ...alternative])
+    );
+  }
+
+  return combinations.filter((parts) => parts.length > 0);
 }
 
 /**
@@ -182,7 +232,7 @@ function collectIconNames(value: unknown): IconNamePart[][] {
  * subclass in the tileset: 405 findings against one production style, all of
  * them names the style would never request.
  */
-function collectMatchNames(expression: unknown[]): IconNamePart[][] {
+function collectMatchNames(expression: unknown[], notes?: string[]): IconNamePart[][] {
   const input = expression[1];
   const inputProperty =
     Array.isArray(input) && input[0] === "get" && typeof input[1] === "string"
@@ -207,13 +257,13 @@ function collectMatchNames(expression: unknown[]): IconNamePart[][] {
       }
       continue;
     }
-    names.push(...collectIconNames(output));
+    names.push(...collectIconNames(output, notes));
   }
 
   // The default branch is whatever the labels did not catch, so nothing
   // constrains it.
   if (expression.length > 2) {
-    names.push(...collectIconNames(expression[expression.length - 1]));
+    names.push(...collectIconNames(expression[expression.length - 1], notes));
   }
   return names;
 }

@@ -2004,9 +2004,9 @@ var require_dispatcher = __commonJS({
         throw new Error("not implemented");
       }
       compose(...args) {
-        const interceptors = Array.isArray(args[0]) ? args[0] : args;
+        const interceptors2 = Array.isArray(args[0]) ? args[0] : args;
         let dispatch = this.dispatch.bind(this);
-        for (const interceptor of interceptors) {
+        for (const interceptor of interceptors2) {
           if (interceptor == null) {
             continue;
           }
@@ -7588,7 +7588,7 @@ var require_client = __commonJS({
        * @param {import('../../types/client.js').Client.Options} options
        */
       constructor(url2, {
-        interceptors,
+        interceptors: interceptors2,
         maxHeaderSize,
         headersTimeout,
         socketTimeout,
@@ -7693,8 +7693,8 @@ var require_client = __commonJS({
             ...connect2
           });
         }
-        if (interceptors?.Client && Array.isArray(interceptors.Client)) {
-          this[kInterceptors] = interceptors.Client;
+        if (interceptors2?.Client && Array.isArray(interceptors2.Client)) {
+          this[kInterceptors] = interceptors2.Client;
           if (!deprecatedInterceptorWarned) {
             deprecatedInterceptorWarned = true;
             process.emitWarning("Client.Options#interceptor is deprecated. Use Dispatcher#compose instead.", {
@@ -11294,7 +11294,7 @@ var require_global2 = __commonJS({
     var globalDispatcher = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
     var { InvalidArgumentError } = require_errors();
     var Agent = require_agent();
-    if (getGlobalDispatcher() === void 0) {
+    if (getGlobalDispatcher2() === void 0) {
       setGlobalDispatcher(new Agent());
     }
     function setGlobalDispatcher(agent) {
@@ -11308,12 +11308,12 @@ var require_global2 = __commonJS({
         configurable: false
       });
     }
-    function getGlobalDispatcher() {
+    function getGlobalDispatcher2() {
       return globalThis[globalDispatcher];
     }
     module2.exports = {
       setGlobalDispatcher,
-      getGlobalDispatcher
+      getGlobalDispatcher: getGlobalDispatcher2
     };
   }
 });
@@ -13438,7 +13438,7 @@ var require_fetch = __commonJS({
     var { Readable, pipeline, finished } = require("node:stream");
     var { addAbortListener, isErrored, isReadable, bufferToLowerCasedHeaderName } = require_util();
     var { dataURLProcessor, serializeAMimeType, minimizeSupportedMimeType } = require_data_url();
-    var { getGlobalDispatcher } = require_global2();
+    var { getGlobalDispatcher: getGlobalDispatcher2 } = require_global2();
     var { webidl } = require_webidl();
     var { STATUS_CODES } = require("node:http");
     var GET_OR_HEAD = ["GET", "HEAD"];
@@ -13600,7 +13600,7 @@ var require_fetch = __commonJS({
       processResponseEndOfBody,
       processResponseConsumeBody,
       useParallelQueue = false,
-      dispatcher = getGlobalDispatcher()
+      dispatcher = getGlobalDispatcher2()
       // undici
     }) {
       assert2(dispatcher);
@@ -17773,7 +17773,7 @@ var require_websocket = __commonJS({
     var { establishWebSocketConnection, closeWebSocketConnection } = require_connection();
     var { ByteParser } = require_receiver();
     var { kEnumerableProperty, isBlobLike } = require_util();
-    var { getGlobalDispatcher } = require_global2();
+    var { getGlobalDispatcher: getGlobalDispatcher2 } = require_global2();
     var { types } = require("node:util");
     var { ErrorEvent, CloseEvent } = require_events();
     var { SendQueue } = require_sender();
@@ -18091,7 +18091,7 @@ var require_websocket = __commonJS({
       {
         key: "dispatcher",
         converter: webidl.converters.any,
-        defaultValue: () => getGlobalDispatcher()
+        defaultValue: () => getGlobalDispatcher2()
       },
       {
         key: "headers",
@@ -18712,7 +18712,7 @@ var require_undici = __commonJS({
     var MockPool = require_mock_pool();
     var mockErrors = require_mock_errors();
     var RetryHandler = require_retry_handler();
-    var { getGlobalDispatcher, setGlobalDispatcher } = require_global2();
+    var { getGlobalDispatcher: getGlobalDispatcher2, setGlobalDispatcher } = require_global2();
     var DecoratorHandler = require_decorator_handler();
     var RedirectHandler = require_redirect_handler();
     var createRedirectInterceptor = require_redirect_interceptor();
@@ -18768,7 +18768,7 @@ var require_undici = __commonJS({
           }
           url2 = util.parseURL(url2);
         }
-        const { agent, dispatcher = getGlobalDispatcher() } = opts;
+        const { agent, dispatcher = getGlobalDispatcher2() } = opts;
         if (agent) {
           throw new InvalidArgumentError("unsupported opts.agent. Did you mean opts.client?");
         }
@@ -18781,7 +18781,7 @@ var require_undici = __commonJS({
       };
     }
     module2.exports.setGlobalDispatcher = setGlobalDispatcher;
-    module2.exports.getGlobalDispatcher = getGlobalDispatcher;
+    module2.exports.getGlobalDispatcher = getGlobalDispatcher2;
     var fetchImpl = require_fetch().fetch;
     module2.exports.fetch = async function fetch2(init, options = void 0) {
       try {
@@ -23485,9 +23485,9 @@ var require_dispatcher2 = __commonJS({
         throw new Error("not implemented");
       }
       compose(...args) {
-        const interceptors = Array.isArray(args[0]) ? args[0] : args;
+        const interceptors2 = Array.isArray(args[0]) ? args[0] : args;
         let dispatch = this.dispatch.bind(this);
-        for (const interceptor of interceptors) {
+        for (const interceptor of interceptors2) {
           if (interceptor == null) {
             continue;
           }
@@ -35424,7 +35424,7 @@ var require_snapshot_utils = __commonJS({
 var require_snapshot_recorder = __commonJS({
   "node_modules/undici/lib/mock/snapshot-recorder.js"(exports2, module2) {
     "use strict";
-    var { writeFile: writeFile4, readFile: readFile5, mkdir: mkdir3 } = require("node:fs/promises");
+    var { writeFile: writeFile4, readFile: readFile4, mkdir: mkdir3 } = require("node:fs/promises");
     var { dirname: dirname3, resolve: resolve3 } = require("node:path");
     var { setTimeout: setTimeout2, clearTimeout: clearTimeout2 } = require("node:timers");
     var { InvalidArgumentError, UndiciError } = require_errors2();
@@ -35641,7 +35641,7 @@ var require_snapshot_recorder = __commonJS({
           throw new InvalidArgumentError("Snapshot path is required");
         }
         try {
-          const data = await readFile5(resolve3(path), "utf8");
+          const data = await readFile4(resolve3(path), "utf8");
           const parsed = JSON.parse(data);
           if (Array.isArray(parsed)) {
             this.#snapshots.clear();
@@ -36120,7 +36120,7 @@ var require_global4 = __commonJS({
     var Agent = require_agent2();
     var Dispatcher1Wrapper = require_dispatcher1_wrapper();
     var fallbackDispatcher;
-    if (getGlobalDispatcher() === void 0) {
+    if (getGlobalDispatcher2() === void 0) {
       setGlobalDispatcher(new Agent());
     }
     function setGlobalDispatcher(agent) {
@@ -36155,7 +36155,7 @@ var require_global4 = __commonJS({
         }
       }
     }
-    function getGlobalDispatcher() {
+    function getGlobalDispatcher2() {
       return globalThis[globalDispatcher] ?? fallbackDispatcher;
     }
     var installedExports = (
@@ -36175,7 +36175,7 @@ var require_global4 = __commonJS({
     );
     module2.exports = {
       setGlobalDispatcher,
-      getGlobalDispatcher,
+      getGlobalDispatcher: getGlobalDispatcher2,
       installedExports
     };
   }
@@ -42233,7 +42233,7 @@ var require_fetch2 = __commonJS({
     var { Readable, pipeline, finished, isErrored, isReadable } = require("node:stream");
     var { addAbortListener, bufferToLowerCasedHeaderName } = require_util9();
     var { dataURLProcessor, serializeAMimeType, minimizeSupportedMimeType } = require_data_url2();
-    var { getGlobalDispatcher } = require_global4();
+    var { getGlobalDispatcher: getGlobalDispatcher2 } = require_global4();
     var { webidl } = require_webidl2();
     var { STATUS_CODES } = require("node:http");
     var { bytesMatch } = require_subresource_integrity();
@@ -42432,7 +42432,7 @@ var require_fetch2 = __commonJS({
       processResponseEndOfBody,
       processResponseConsumeBody,
       useParallelQueue = false,
-      dispatcher = getGlobalDispatcher(),
+      dispatcher = getGlobalDispatcher2(),
       // undici
       requestObject = null
       // Keep alive to prevent AbortController GC, see #4627
@@ -45808,7 +45808,7 @@ var require_websocket2 = __commonJS({
     var { establishWebSocketConnection, closeWebSocketConnection, failWebsocketConnection } = require_connection2();
     var { ByteParser } = require_receiver2();
     var { kEnumerableProperty } = require_util9();
-    var { getGlobalDispatcher } = require_global4();
+    var { getGlobalDispatcher: getGlobalDispatcher2 } = require_global4();
     var { ErrorEvent, CloseEvent, createFastMessageEvent } = require_events2();
     var { SendQueue } = require_sender2();
     var { WebsocketFrameSend } = require_frame2();
@@ -46243,7 +46243,7 @@ var require_websocket2 = __commonJS({
       {
         key: "dispatcher",
         converter: webidl.converters.any,
-        defaultValue: () => getGlobalDispatcher()
+        defaultValue: () => getGlobalDispatcher2()
       },
       {
         key: "headers",
@@ -47383,7 +47383,7 @@ var require_undici2 = __commonJS({
     var SnapshotAgent = require_snapshot_agent();
     var mockErrors = require_mock_errors2();
     var RetryHandler = require_retry_handler2();
-    var { getGlobalDispatcher, setGlobalDispatcher } = require_global4();
+    var { getGlobalDispatcher: getGlobalDispatcher2, setGlobalDispatcher } = require_global4();
     var DecoratorHandler = require_decorator_handler2();
     var RedirectHandler = require_redirect_handler2();
     Object.assign(Dispatcher.prototype, api);
@@ -47450,7 +47450,7 @@ var require_undici2 = __commonJS({
           }
           url2 = util.parseURL(url2);
         }
-        const { agent, dispatcher = getGlobalDispatcher(), ...restOpts } = opts;
+        const { agent, dispatcher = getGlobalDispatcher2(), ...restOpts } = opts;
         if (agent) {
           throw new InvalidArgumentError("unsupported opts.agent. Did you mean opts.client?");
         }
@@ -47463,7 +47463,7 @@ var require_undici2 = __commonJS({
       };
     }
     module2.exports.setGlobalDispatcher = setGlobalDispatcher;
-    module2.exports.getGlobalDispatcher = getGlobalDispatcher;
+    module2.exports.getGlobalDispatcher = getGlobalDispatcher2;
     var fetchImpl = require_fetch2().fetch;
     var currentFilename = typeof __filename !== "undefined" ? __filename : void 0;
     function appendFetchStackTrace(err2, filename) {
@@ -58024,12 +58024,17 @@ function resolveAgainstUrl(reference, base) {
 function isHttpUrl(location) {
   return location.startsWith("http://") || location.startsWith("https://");
 }
+var redirect = import_undici2.interceptors.redirect({ maxRedirections: 5, throwOnMaxRedirect: false });
+function followingRedirects() {
+  return (0, import_undici2.getGlobalDispatcher)().compose(redirect);
+}
 async function readText(location, timeoutMs) {
   if (isHttpUrl(location)) {
     const response = await (0, import_undici2.request)(location, {
       method: "GET",
       headersTimeout: timeoutMs,
-      bodyTimeout: timeoutMs
+      bodyTimeout: timeoutMs,
+      dispatcher: followingRedirects()
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw new Error(`HTTP ${response.statusCode}`);
@@ -58045,7 +58050,8 @@ async function readRemoteBytes(location, timeoutMs) {
   const response = await (0, import_undici2.request)(location, {
     method: "GET",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
   if (response.statusCode === 404 || response.statusCode === 204) {
     await response.body.dump();
@@ -58082,19 +58088,24 @@ async function headOrGetOk(location, timeoutMs) {
   const head = await (0, import_undici2.request)(location, {
     method: "HEAD",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
   await head.body.dump();
-  if (head.statusCode >= 200 && head.statusCode < 400) {
+  if (isOk(head.statusCode)) {
     return true;
   }
   const get = await (0, import_undici2.request)(location, {
     method: "GET",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
   await get.body.dump();
-  return get.statusCode >= 200 && get.statusCode < 400;
+  return isOk(get.statusCode);
+}
+function isOk(statusCode) {
+  return statusCode >= 200 && statusCode < 300;
 }
 
 // packages/core/dist/canary.js
@@ -58107,7 +58118,10 @@ var PMTILES_PATH = `${HARNESS_PREFIX}pmtiles.js`;
 var DEFAULT_SIZE = 512;
 var DEFAULT_MAX_DIFF_RATIO = 5e-3;
 async function runVisualCanaries(options) {
-  const { browserStyle, unrenderableSources } = rewriteStyleForBrowser(options.style, options.styleDir, options.contracts);
+  for (const canary of options.canaries) {
+    assertSafeCanaryId(canary.id);
+  }
+  const { browserStyle, unrenderableSources, droppedLayers } = rewriteStyleForBrowser(options.style, options.styleDir, options.contracts);
   let assets;
   let chromium;
   try {
@@ -58117,6 +58131,7 @@ async function runVisualCanaries(options) {
     return {
       observations: [],
       unrenderableSources,
+      droppedLayers,
       unavailable: `Visual canaries need the optional playwright and maplibre-gl packages: ${messageOf(error52)}`
     };
   }
@@ -58131,6 +58146,7 @@ async function runVisualCanaries(options) {
     return {
       observations: [],
       unrenderableSources,
+      droppedLayers,
       unavailable: `Could not launch Chromium for visual canaries: ${messageOf(error52)}`
     };
   }
@@ -58139,9 +58155,15 @@ async function runVisualCanaries(options) {
     for (const canary of options.canaries) {
       observations.push(await renderCanary(browser, assets, browserStyle, canary, options));
     }
-    return { observations, unrenderableSources };
+    return { observations, unrenderableSources, droppedLayers };
   } finally {
     await browser.close();
+  }
+}
+var safeCanaryId = /^[A-Za-z0-9._-]+$/;
+function assertSafeCanaryId(id) {
+  if (!safeCanaryId.test(id) || id === "." || id === "..") {
+    throw new Error(`Canary id ${JSON.stringify(id)} is not a valid file name. Use letters, digits, dot, underscore, or hyphen.`);
   }
 }
 async function renderCanary(browser, assets, browserStyle, canary, options) {
@@ -58297,9 +58319,14 @@ function rewriteStyleForBrowser(style, styleDir, contracts) {
     });
   }
   const droppedSources = new Set(unrenderableSources.map((entry) => entry.id));
+  const droppedLayers = [];
   const layers = (Array.isArray(style.layers) ? style.layers : []).filter((layer) => {
-    const source = layer.source;
-    return typeof source !== "string" || !droppedSources.has(source);
+    const record2 = layer;
+    if (typeof record2.source === "string" && droppedSources.has(record2.source)) {
+      droppedLayers.push(typeof record2.id === "string" ? record2.id : "unknown-layer");
+      return false;
+    }
+    return true;
   });
   const browserStyle = {
     ...style,
@@ -58308,7 +58335,7 @@ function rewriteStyleForBrowser(style, styleDir, contracts) {
     ...style.sprite === void 0 ? {} : { sprite: absolutizeSprite(style.sprite, styleDir) },
     ...style.glyphs === void 0 ? {} : { glyphs: toBrowserUrl(style.glyphs, styleDir) }
   };
-  return { browserStyle, unrenderableSources };
+  return { browserStyle, unrenderableSources, droppedLayers };
 }
 function absolutizeSource(record2, styleDir) {
   const next = { ...record2 };
@@ -58493,6 +58520,7 @@ function collectStyleUsage(style) {
   const usage = {
     iconImages: /* @__PURE__ */ new Set(),
     iconTemplates: [],
+    unresolvedIcons: [],
     fontStacks: /* @__PURE__ */ new Set(),
     properties: /* @__PURE__ */ new Map()
   };
@@ -58505,12 +58533,16 @@ function collectStyleUsage(style) {
     scanValue(layerRecord?.paint, layerId, usage);
     scanValue(layerRecord?.filter, layerId, usage);
     const iconImage = asRecord(layerRecord?.layout)?.["icon-image"];
-    for (const parts of collectIconNames(iconImage)) {
+    const notes = [];
+    for (const parts of collectIconNames(iconImage, notes)) {
       if (parts.every((part) => "literal" in part)) {
         usage.iconImages.add(parts.map((part) => "literal" in part ? part.literal : "").join(""));
       } else {
         usage.iconTemplates.push({ layerId, parts });
       }
+    }
+    for (const reason of new Set(notes)) {
+      usage.unresolvedIcons.push({ layerId, reason });
     }
     const textFont = asRecord(layerRecord?.layout)?.["text-font"];
     collectStaticStrings(textFont).forEach((value) => usage.fontStacks.add(value));
@@ -58535,7 +58567,7 @@ function scanValue(value, layerId, usage) {
     scanValue(nested, layerId, usage);
   }
 }
-function collectIconNames(value) {
+function collectIconNames(value, notes) {
   if (typeof value === "string") {
     const parts = parseTokens(value);
     return parts.length === 0 ? [] : [parts];
@@ -58548,34 +58580,46 @@ function collectIconNames(value) {
     return Array.isArray(value[1]) ? value[1].filter((item) => typeof item === "string").map(parseTokens).filter((parts) => parts.length > 0) : [];
   }
   if (operator === "image") {
-    return collectIconNames(value[1]);
+    return collectIconNames(value[1], notes);
   }
   if (operator === "get") {
     return typeof value[1] === "string" ? [[{ property: value[1] }]] : [];
   }
   if (operator === "to-string" || operator === "coalesce") {
-    return value.slice(1).flatMap(collectIconNames);
+    return value.slice(1).flatMap((argument) => collectIconNames(argument, notes));
   }
   if (operator === "concat") {
-    const parts = [];
-    for (const argument of value.slice(1)) {
-      const resolved = collectIconNames(argument)[0];
-      if (!resolved) {
-        return [];
-      }
-      parts.push(...resolved);
-    }
-    return parts.length === 0 ? [] : [parts];
+    return collectConcatNames(value, notes);
   }
   if (operator === "match") {
-    return collectMatchNames(value);
+    return collectMatchNames(value, notes);
   }
   if (operator === "case" || operator === "step") {
-    return branchOutputs(value).flatMap(collectIconNames);
+    return branchOutputs(value).flatMap((branch) => collectIconNames(branch, notes));
   }
-  return value.slice(1).flatMap(collectIconNames);
+  return value.slice(1).flatMap((argument) => collectIconNames(argument, notes));
 }
-function collectMatchNames(expression) {
+var maxIconNameCombinations = 64;
+function collectConcatNames(value, notes) {
+  let combinations = [[]];
+  for (const argument of value.slice(1)) {
+    const alternatives = collectIconNames(argument, notes);
+    if (alternatives.length === 0) {
+      if (typeof argument === "string") {
+        continue;
+      }
+      notes?.push("an argument that cannot be reduced to a name");
+      return [];
+    }
+    if (combinations.length * alternatives.length > maxIconNameCombinations) {
+      notes?.push(`more than ${maxIconNameCombinations} possible names`);
+      return [];
+    }
+    combinations = combinations.flatMap((prefix) => alternatives.map((alternative) => [...prefix, ...alternative]));
+  }
+  return combinations.filter((parts) => parts.length > 0);
+}
+function collectMatchNames(expression, notes) {
   const input = expression[1];
   const inputProperty = Array.isArray(input) && input[0] === "get" && typeof input[1] === "string" ? input[1] : void 0;
   const names = [];
@@ -58590,10 +58634,10 @@ function collectMatchNames(expression) {
       }
       continue;
     }
-    names.push(...collectIconNames(output));
+    names.push(...collectIconNames(output, notes));
   }
   if (expression.length > 2) {
-    names.push(...collectIconNames(expression[expression.length - 1]));
+    names.push(...collectIconNames(expression[expression.length - 1], notes));
   }
   return names;
 }
@@ -73231,7 +73275,7 @@ config(en_default());
 // packages/core/dist/report-schema.js
 var severity = external_exports.enum(["broken", "risky", "warning", "info"]);
 var checkStatus = external_exports.enum(["passed", "failed", "incomplete"]);
-var category = external_exports.enum([
+var findingCategories = [
   "style-spec",
   "source",
   "source-layer",
@@ -73242,7 +73286,8 @@ var category = external_exports.enum([
   "expression-property",
   "tile-availability",
   "visual-canary"
-]);
+];
+var category = external_exports.enum(findingCategories);
 var evidence = external_exports.record(external_exports.string(), external_exports.unknown());
 var findingSchema = external_exports.object({
   id: external_exports.string(),
@@ -74125,7 +74170,7 @@ var w = H;
 async function readSourceContract(id, location, timeoutMs) {
   const path = locationPath(location).toLowerCase();
   if (path.endsWith(".pmtiles") || location.startsWith("pmtiles://")) {
-    return readPmtilesSource(id, location);
+    return readPmtilesSource(id, location, timeoutMs);
   }
   if (path.endsWith(".mbtiles")) {
     return readMbtilesSource(id, location);
@@ -74151,12 +74196,13 @@ function locationPath(location) {
     return normalized;
   }
 }
-function openPmtiles(location) {
+function openPmtiles(location, timeoutMs) {
   const normalized = location.startsWith("pmtiles://") ? location.slice("pmtiles://".length) : location;
-  return new w(isHttpUrl(normalized) ? new T(normalized) : new LocalFileSource(normalized));
+  const source = isHttpUrl(normalized) ? new T(normalized) : new LocalFileSource(normalized);
+  return new w(new TimeoutSource(source, timeoutMs));
 }
-async function readPmtilesSource(id, location) {
-  const pmtiles = openPmtiles(location);
+async function readPmtilesSource(id, location, timeoutMs) {
+  const pmtiles = openPmtiles(location, timeoutMs);
   const [header, metadata] = await Promise.all([pmtiles.getHeader(), pmtiles.getMetadata()]);
   const metadataRecord = asRecord2(metadata);
   return {
@@ -74295,6 +74341,22 @@ function asRecord2(value) {
   }
   return void 0;
 }
+var TimeoutSource = class {
+  inner;
+  timeoutMs;
+  constructor(inner, timeoutMs) {
+    this.inner = inner;
+    this.timeoutMs = timeoutMs;
+  }
+  getKey() {
+    return this.inner.getKey();
+  }
+  async getBytes(offset, length, signal, etag) {
+    const timeout = AbortSignal.timeout(this.timeoutMs);
+    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    return this.inner.getBytes(offset, length, combined, etag);
+  }
+};
 var LocalFileSource = class {
   path;
   constructor(path) {
@@ -74303,11 +74365,23 @@ var LocalFileSource = class {
   getKey() {
     return this.path;
   }
+  /**
+   * Reads only the requested range. PMTiles is built around small header,
+   * directory, metadata, and tile reads, so `readFile` of the whole archive per
+   * range allocated it many times over — fine for a fixture, an out-of-memory
+   * failure on a multi-gigabyte production archive.
+   */
   async getBytes(offset, length) {
-    const handle = await (0, import_promises3.readFile)(this.path);
-    return {
-      data: handle.buffer.slice(handle.byteOffset + offset, handle.byteOffset + offset + length)
-    };
+    const handle = await (0, import_promises3.open)(this.path, "r");
+    try {
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buffer, 0, length, offset);
+      return {
+        data: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + bytesRead)
+      };
+    } finally {
+      await handle.close();
+    }
   }
 };
 
@@ -75218,27 +75292,30 @@ function withinBounds(bounds) {
   const [west, south, east, north] = bounds;
   return populatedAnchors.filter(([lon, lat]) => lon >= west && lon <= east && lat >= south && lat <= north);
 }
+function resolvedTileTemplate(contract) {
+  const template = contract.tileUrls?.[0];
+  return template === void 0 ? void 0 : resolveLocation(template, locationDir(contract.location));
+}
 function isRemoteSource(contract) {
   if (contract.kind === "tilejson") {
-    const template = contract.tileUrls?.[0];
+    const template = resolvedTileTemplate(contract);
     return template ? isHttpUrl(template) : isHttpUrl(contract.location);
   }
   return isHttpUrl(contract.location.replace(/^pmtiles:\/\//, ""));
 }
 async function readTile(contract, address, timeoutMs) {
   if (contract.kind === "pmtiles") {
-    const tile = await openPmtiles(contract.location).getZxy(address.z, address.x, address.y);
+    const tile = await openPmtiles(contract.location, timeoutMs).getZxy(address.z, address.x, address.y, AbortSignal.timeout(timeoutMs));
     return tile ? new Uint8Array(tile.data) : void 0;
   }
   if (contract.kind === "mbtiles") {
     return readMbtilesTile(contract.location, address);
   }
-  const template = contract.tileUrls?.[0];
+  const template = resolvedTileTemplate(contract);
   if (!template) {
     return void 0;
   }
-  const target = template.replace("{z}", String(address.z)).replace("{x}", String(address.x)).replace("{y}", String(address.y));
-  const resolved = resolveLocation(target, locationDir(contract.location));
+  const resolved = template.replace("{z}", String(address.z)).replace("{x}", String(address.x)).replace("{y}", String(address.y));
   if (isHttpUrl(resolved)) {
     const bytes = await readRemoteBytes(resolved, timeoutMs);
     return bytes ? decompress(bytes) : void 0;
@@ -75371,7 +75448,7 @@ var severityRank = {
 // packages/core/dist/checker.js
 async function checkStyleContract(options) {
   const timeoutMs = options.timeoutMs ?? 1e4;
-  const failThreshold = options.failThreshold ?? "broken";
+  const failThreshold = normalizeThreshold(options.failThreshold);
   const allowNetwork = options.allowNetwork ?? true;
   const sampleTiles = options.sampleTiles ?? true;
   const absenceSeverity = options.sampledAbsenceSeverity ?? "info";
@@ -75396,11 +75473,6 @@ async function checkStyleContract(options) {
       path: String("key" in error52 ? error52.key : "style")
     });
   }
-  checks.push({
-    id: "style-spec",
-    status: styleErrors.length === 0 ? "passed" : "failed",
-    message: styleErrors.length === 0 ? "Style specification is valid." : "Style specification errors found."
-  });
   const explicitSources = new Map((options.sources ?? []).map((source) => [source.id, source.location]));
   const styleSources = style.sources ?? {};
   const contracts = /* @__PURE__ */ new Map();
@@ -75486,30 +75558,15 @@ async function checkStyleContract(options) {
       reportSampleHealth(sourceId, sample, findings, incompleteChecks);
     }
   }
-  checks.push({
-    id: "tile-sample",
-    status: tileSampleStatus(sampleTiles, contracts, samples),
-    message: sampleTiles ? "Sampled vector tiles for observed layers and properties." : "Tile sampling was disabled; checks used declared metadata only."
-  });
   for (const layer of layers) {
     inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity);
   }
-  checks.push({
-    id: "source-layer",
-    status: findings.some((finding) => finding.category === "source-layer" && finding.severity === "broken") ? "failed" : incompleteChecks.some((check2) => check2.category === "source-layer") ? "incomplete" : "passed",
-    message: "Checked style layers against declared and sampled vector layers."
-  });
   await inspectSprite(style, usage, layers, samples, styleDir, timeoutMs, allowNetwork, findings, incompleteChecks);
   await inspectGlyphs(style, usage.fontStacks, styleDir, timeoutMs, allowNetwork, incompleteChecks);
   inspectExpressionProperties(layers, contracts, samples, usage.properties, findings, absenceSeverity);
-  const assetCategories = /* @__PURE__ */ new Set(["glyph", "sprite", "icon"]);
-  checks.push({
-    id: "assets",
-    status: findings.some((finding) => assetCategories.has(finding.category) && finding.severity === "broken") ? "failed" : incompleteChecks.some((check2) => assetCategories.has(check2.category)) ? "incomplete" : "passed",
-    message: "Checked glyph and sprite references."
-  });
+  let canaryRun;
   if (options.canaries?.length) {
-    const run = await runVisualCanaries({
+    canaryRun = await runVisualCanaries({
       style,
       styleDir,
       contracts,
@@ -75520,11 +75577,33 @@ async function checkStyleContract(options) {
       timeoutMs,
       allowNetwork
     });
-    reportCanaryRun(run, canaryDiffThreshold(options.maxDiffRatio), findings, incompleteChecks);
+    reportCanaryRun(canaryRun, canaryDiffThreshold(options.maxDiffRatio), findings, incompleteChecks);
+  }
+  checks.push({
+    id: "style-spec",
+    status: categoryStatus(checkCategories["style-spec"], findings, incompleteChecks, failThreshold),
+    message: styleErrors.length === 0 ? "Style specification is valid." : "Style specification errors found."
+  });
+  checks.push({
+    id: "tile-sample",
+    status: tileSampleStatus(sampleTiles, contracts, samples, findings, incompleteChecks, failThreshold),
+    message: sampleTiles ? "Sampled vector tiles for observed layers and properties." : "Tile sampling was disabled; checks used declared metadata only."
+  });
+  checks.push({
+    id: "source-layer",
+    status: categoryStatus(checkCategories["source-layer"], findings, incompleteChecks, failThreshold),
+    message: "Checked style layers against their sources' declared and sampled vector layers."
+  });
+  checks.push({
+    id: "assets",
+    status: categoryStatus(checkCategories.assets, findings, incompleteChecks, failThreshold),
+    message: "Checked glyph and sprite references."
+  });
+  if (canaryRun) {
     checks.push({
       id: "visual-canary",
-      status: canaryStatus(run, findings),
-      message: `Rendered ${run.observations.length} of ${options.canaries.length} visual canaries.`
+      status: canaryStatus(canaryRun, findings, incompleteChecks, failThreshold),
+      message: `Rendered ${canaryRun.observations.length} of ${options.canaries?.length ?? 0} visual canaries.`
     });
   }
   const summary2 = {
@@ -75546,6 +75625,15 @@ async function checkStyleContract(options) {
     incompleteChecks,
     summary: summary2
   });
+}
+function normalizeThreshold(value) {
+  if (value === void 0) {
+    return "broken";
+  }
+  if (!Object.hasOwn(severityRank, value)) {
+    throw new Error(`Unknown fail threshold ${JSON.stringify(value)}. Expected one of: ${Object.keys(severityRank).join(", ")}.`);
+  }
+  return value;
 }
 function parseStyleText(styleText) {
   try {
@@ -75600,11 +75688,12 @@ function reportCanaryRun(run, maxDiffRatio, findings, incompleteChecks) {
       message: `Source ${source.id} was left out of every visual canary because ${source.reason}.`
     });
   }
+  const droppedLayers = new Set(run.droppedLayers);
   for (const observation of run.observations) {
-    reportCanary(observation, maxDiffRatio, findings, incompleteChecks);
+    reportCanary(observation, maxDiffRatio, droppedLayers, findings, incompleteChecks);
   }
 }
-function reportCanary(observation, maxDiffRatio, findings, incompleteChecks) {
+function reportCanary(observation, maxDiffRatio, droppedLayers, findings, incompleteChecks) {
   const id = observation.id;
   if (observation.incomplete) {
     incompleteChecks.push({
@@ -75642,7 +75731,7 @@ function reportCanary(observation, maxDiffRatio, findings, incompleteChecks) {
       evidence: { canary: id }
     });
   }
-  if (observation.featureCount === 0) {
+  if (observation.featureCount === 0 && droppedLayers.size === 0) {
     findings.push({
       id: `canary.${id}.no-features`,
       severity: "risky",
@@ -75652,6 +75741,15 @@ function reportCanary(observation, maxDiffRatio, findings, incompleteChecks) {
     });
   }
   for (const layerId of observation.expectedButEmpty ?? []) {
+    if (droppedLayers.has(layerId)) {
+      incompleteChecks.push({
+        id: `canary.${id}.layer.${layerId}.not-rendered`,
+        category: "visual-canary",
+        message: `Canary ${id} expected layer ${layerId} to render, but its source was left out of the canary, so it was not checked.`,
+        evidence: { canary: id, layerId }
+      });
+      continue;
+    }
     findings.push({
       id: `canary.${id}.layer.${layerId}.empty`,
       severity: "broken",
@@ -75699,21 +75797,39 @@ function screenshotEvidence(observation) {
     ...observation.diffPath === void 0 ? {} : { diff: observation.diffPath }
   };
 }
-function canaryStatus(run, findings) {
+function canaryStatus(run, findings, incompleteChecks, failThreshold) {
   if (run.unavailable || run.unrenderableSources.length > 0) {
     return "incomplete";
   }
   if (run.observations.some((observation) => observation.incomplete || observation.transportErrors.length > 0)) {
     return "incomplete";
   }
-  return findings.some((finding) => finding.category === "visual-canary" && finding.severity !== "info") ? "failed" : "passed";
+  return categoryStatus(checkCategories["visual-canary"], findings, incompleteChecks, failThreshold);
 }
-function tileSampleStatus(enabled, contracts, samples) {
+var checkCategories = {
+  "style-spec": ["style-spec"],
+  "tile-sample": ["tile-availability", "expression-property"],
+  "source-layer": ["source-layer", "source", "zoom"],
+  assets: ["glyph", "sprite", "icon"],
+  "visual-canary": ["visual-canary"]
+};
+function categoryStatus(categories, findings, incompleteChecks, failThreshold) {
+  const owned = new Set(categories);
+  if (findings.some((finding) => owned.has(finding.category) && severityRank[finding.severity] >= severityRank[failThreshold])) {
+    return "failed";
+  }
+  return incompleteChecks.some((check2) => owned.has(check2.category)) ? "incomplete" : "passed";
+}
+function tileSampleStatus(enabled, contracts, samples, findings, incompleteChecks, failThreshold) {
+  const fromFindings = categoryStatus(checkCategories["tile-sample"], findings, incompleteChecks, failThreshold);
+  if (fromFindings === "failed") {
+    return "failed";
+  }
   if (!enabled || contracts.size === 0) {
     return "incomplete";
   }
   const usable = [...samples.values()].filter((sample) => !sample.skipped && sample.failures.length === 0 && sample.retrieved.length > 0);
-  return usable.length === samples.size ? "passed" : "incomplete";
+  return usable.length === samples.size ? fromFindings : "incomplete";
 }
 function inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity) {
   const layerRecord = layer;
@@ -75819,11 +75935,22 @@ function inspectSourceLayer(layerId, sourceId, sourceLayer, contract, sample, fi
 }
 async function inspectSprite(style, usage, layers, samples, styleDir, timeoutMs, allowNetwork, findings, incompleteChecks) {
   const iconImages = usage.iconImages;
-  if (!style.sprite || iconImages.size === 0 && usage.iconTemplates.length === 0) {
+  if (!style.sprite) {
     return;
   }
   const sources = spriteSources(style.sprite);
   if (sources.length === 0) {
+    return;
+  }
+  for (const unresolved of usage.unresolvedIcons) {
+    incompleteChecks.push({
+      id: `layer.${unresolved.layerId}.icon-image.unresolved`,
+      category: "icon",
+      message: `Layer ${unresolved.layerId} builds icon-image from ${unresolved.reason}, so its icons could not be checked against the sprite.`,
+      evidence: { layerId: unresolved.layerId }
+    });
+  }
+  if (iconImages.size === 0 && usage.iconTemplates.length === 0) {
     return;
   }
   const namespaced = Array.isArray(style.sprite);
@@ -76092,7 +76219,7 @@ function inspectExpressionProperties(layers, contracts, samples, propertiesByLay
     const declaredFields = contract?.vectorLayers.find((candidate) => candidate.id === sourceLayer)?.fields;
     const sampled = samples.get(sourceId)?.layers.get(sourceLayer);
     for (const property of properties) {
-      const declared = declaredFields ? Boolean(declaredFields[property]) : void 0;
+      const declared = declaredFields ? Object.hasOwn(declaredFields, property) : void 0;
       const observed = sampled ? sampled.properties.has(property) : void 0;
       if (observed === true) {
         continue;
@@ -76220,6 +76347,8 @@ async function runAction() {
     const message = `${finding.category}: ${finding.message}`;
     if (finding.severity === "broken") {
       error(message);
+    } else if (finding.severity === "info") {
+      notice(message);
     } else {
       warning(message);
     }

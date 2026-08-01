@@ -1,0 +1,19 @@
+{
+  "tilejson": "3.0.0",
+  "name": "undescribed field fixture",
+  "minzoom": 0,
+  "maxzoom": 14,
+  "bounds": [-180, -85, 180, 85],
+  "tiles": ["../generated/tiles/{z}/{x}/{y}.pbf"],
+  "vector_layers": [
+    {
+      "id": "poi",
+      "fields": {
+        "name": "",
+        "class": "String"
+      },
+      "minzoom": 0,
+      "maxzoom": 14
+    }
+  ]
+}

@@ -162,9 +162,24 @@ function withinBounds(bounds: [number, number, number, number]): [number, number
   );
 }
 
+/**
+ * The tile template this contract samples from, already resolved against the
+ * artifact that declared it. Both the offline gate and the reader go through
+ * here so they cannot disagree about where a tile lives: testing the raw
+ * template classified `../tiles/{z}/{x}/{y}.pbf` under a remote style as local,
+ * and `allowNetwork: false` then fetched it anyway. `resolveLocation` keeps the
+ * `{z}/{x}/{y}` braces unencoded, so substitution still works afterwards.
+ */
+function resolvedTileTemplate(contract: SourceContract): string | undefined {
+  const template = contract.tileUrls?.[0];
+  return template === undefined
+    ? undefined
+    : resolveLocation(template, locationDir(contract.location));
+}
+
 function isRemoteSource(contract: SourceContract): boolean {
   if (contract.kind === "tilejson") {
-    const template = contract.tileUrls?.[0];
+    const template = resolvedTileTemplate(contract);
     return template ? isHttpUrl(template) : isHttpUrl(contract.location);
   }
   return isHttpUrl(contract.location.replace(/^pmtiles:\/\//, ""));
@@ -176,7 +191,14 @@ async function readTile(
   timeoutMs: number
 ): Promise<Uint8Array | undefined> {
   if (contract.kind === "pmtiles") {
-    const tile = await openPmtiles(contract.location).getZxy(address.z, address.x, address.y);
+    // The archive is opened with the timeout, so the header, directory, and
+    // tile range reads it performs are all bounded by it.
+    const tile = await openPmtiles(contract.location, timeoutMs).getZxy(
+      address.z,
+      address.x,
+      address.y,
+      AbortSignal.timeout(timeoutMs)
+    );
     return tile ? new Uint8Array(tile.data) : undefined;
   }
 
@@ -184,19 +206,15 @@ async function readTile(
     return readMbtilesTile(contract.location, address);
   }
 
-  const template = contract.tileUrls?.[0];
+  const template = resolvedTileTemplate(contract);
   if (!template) {
     return undefined;
   }
-  const target = template
+  const resolved = template
     .replace("{z}", String(address.z))
     .replace("{x}", String(address.x))
     .replace("{y}", String(address.y));
 
-  // Resolved against the TileJSON that declared it before it is classified: a
-  // relative template under a remote TileJSON is a URL, and testing the raw
-  // template for `http` sent it to the filesystem reader instead.
-  const resolved = resolveLocation(target, locationDir(contract.location));
   if (isHttpUrl(resolved)) {
     const bytes = await readRemoteBytes(resolved, timeoutMs);
     return bytes ? decompress(bytes) : undefined;

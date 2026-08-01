@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readSourceContract } from "../src/source-reader.js";
+import { openPmtiles, readSourceContract } from "../src/source-reader.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 const pmtiles = resolve(root, "fixtures/generated/basemap.pmtiles");
@@ -153,4 +153,82 @@ describe("readSourceContract over HTTP", () => {
 
     expect(contract.kind).toBe("pmtiles");
   });
+});
+
+// Every PMTiles range read used to load the whole archive: fine for this
+// fixture, an out-of-memory failure on a multi-gigabyte production one. The
+// bytes it hands back have to stay exactly the requested window.
+describe("local PMTiles range reads", () => {
+  let server: Server;
+  let origin = "";
+
+  // Serves the same archive over HTTP byte ranges, which is the reader that was
+  // already correct. Reading both ways and comparing is what proves the local
+  // offset arithmetic, since a tile lives deep inside the file rather than at
+  // offset zero.
+  beforeAll(async () => {
+    const archive = await readFile(pmtiles);
+    server = createServer((request, response) => {
+      const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers.range ?? "");
+      if (!range) {
+        response.writeHead(200, { "content-length": String(archive.length) }).end(archive);
+        return;
+      }
+      const start = Number(range[1]);
+      const end = Math.min(Number(range[2]), archive.length - 1);
+      response.writeHead(206, {
+        "content-range": `bytes ${start}-${end}/${archive.length}`,
+        "content-length": String(end - start + 1)
+      });
+      response.end(archive.subarray(start, end + 1));
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  it("reads the same header and metadata as a ranged HTTP archive", async () => {
+    const local = openPmtiles(pmtiles, 5_000);
+    const remote = openPmtiles(`${origin}/basemap.pmtiles`, 5_000);
+
+    expect(await local.getHeader()).toEqual(await remote.getHeader());
+    expect(await local.getMetadata()).toEqual(await remote.getMetadata());
+  });
+
+  it("reads the same tile bytes from deep inside the archive", async () => {
+    const local = await openPmtiles(pmtiles, 5_000).getZxy(0, 0, 0);
+    const remote = await openPmtiles(`${origin}/basemap.pmtiles`, 5_000).getZxy(0, 0, 0);
+
+    expect(local).toBeDefined();
+    expect(new Uint8Array(local!.data)).toEqual(new Uint8Array(remote!.data));
+  });
+});
+
+// `readSourceContract` took a timeout and never passed it into the PMTiles
+// path, so a remote archive's header, directory, and metadata requests ran with
+// no deadline at all and a hung host stalled the check indefinitely.
+describe("PMTiles timeouts", () => {
+  let server: Server;
+  let origin = "";
+
+  beforeAll(async () => {
+    // Accepts the request and never answers.
+    server = createServer(() => {});
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  it("gives up on a remote archive that never answers", async () => {
+    await expect(
+      readSourceContract("basemap", `${origin}/basemap.pmtiles`, 300)
+    ).rejects.toThrow();
+  }, 10_000);
 });

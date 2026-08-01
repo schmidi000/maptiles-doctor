@@ -168,7 +168,7 @@ describe("collectStyleUsage", () => {
       expect(usage.iconTemplates).toEqual([{ layerId: "poi", parts: [{ property: "subclass" }] }]);
     });
 
-    it("abandons a concat whose argument cannot be modelled", () => {
+    it("abandons a concat whose argument cannot be modelled, and says so", () => {
       const usage = collectStyleUsage({
         layers: [
           { id: "a", layout: { "icon-image": ["concat", "pin-", ["number-format", 1, {}]] } }
@@ -177,6 +177,93 @@ describe("collectStyleUsage", () => {
 
       expect([...usage.iconImages]).toEqual([]);
       expect(usage.iconTemplates).toEqual([]);
+      // Not silently: a layer whose icons were never looked up has to reach the
+      // report as an incomplete check rather than as a clean pass.
+      expect(usage.unresolvedIcons).toEqual([
+        { layerId: "a", reason: "an argument that cannot be reduced to a name" }
+      ]);
+    });
+
+    // Reading only the first possible output of each argument dropped every
+    // branch after the first: a missing `prefix-two` sprite passed the check.
+    it("expands every branch of a concat argument", () => {
+      const usage = collectStyleUsage({
+        layers: [
+          {
+            id: "a",
+            layout: { "icon-image": ["concat", "prefix-", ["case", ["get", "flag"], "one", "two"]] }
+          }
+        ]
+      });
+
+      expect([...usage.iconImages].sort()).toEqual(["prefix-one", "prefix-two"]);
+      expect(usage.unresolvedIcons).toEqual([]);
+    });
+
+    it("expands the product of several branching concat arguments", () => {
+      const usage = collectStyleUsage({
+        layers: [
+          {
+            id: "a",
+            layout: {
+              "icon-image": [
+                "concat",
+                ["case", ["get", "f"], "a", "b"],
+                "-",
+                ["match", ["get", "g"], "x", "one", "two"]
+              ]
+            }
+          }
+        ]
+      });
+
+      expect([...usage.iconImages].sort()).toEqual(["a-one", "a-two", "b-one", "b-two"]);
+    });
+
+    it("keeps a branching concat over a property as one template per branch", () => {
+      const usage = collectStyleUsage({
+        layers: [
+          {
+            id: "a",
+            layout: {
+              "icon-image": ["concat", ["case", ["get", "f"], "road-", "rail-"], ["get", "class"]]
+            }
+          }
+        ]
+      });
+
+      expect(usage.iconTemplates).toEqual([
+        { layerId: "a", parts: [{ literal: "road-" }, { property: "class" }] },
+        { layerId: "a", parts: [{ literal: "rail-" }, { property: "class" }] }
+      ]);
+    });
+
+    // An empty string means "draw no icon" on its own, but inside a concat it is
+    // simply a fragment that contributes nothing — not an unmodellable argument.
+    it("treats an empty string argument as an empty fragment", () => {
+      const usage = collectStyleUsage({
+        layers: [{ id: "a", layout: { "icon-image": ["concat", "pin", ""] } }]
+      });
+
+      expect([...usage.iconImages]).toEqual(["pin"]);
+      expect(usage.unresolvedIcons).toEqual([]);
+    });
+
+    it("gives up on a concat with more names than it will enumerate", () => {
+      const many = (prefix: string): unknown[] => [
+        "match",
+        ["get", "class"],
+        ...Array.from({ length: 10 }, (_, index) => [`l${index}`, `${prefix}${index}`]).flat(),
+        `${prefix}-default`
+      ];
+      const usage = collectStyleUsage({
+        layers: [{ id: "a", layout: { "icon-image": ["concat", many("a"), many("b")] } }]
+      });
+
+      expect([...usage.iconImages]).toEqual([]);
+      expect(usage.unresolvedIcons).toEqual([
+        { layerId: "a", reason: "more than 64 possible names" }
+      ]);
     });
 
     it("reports every property a template reads", () => {

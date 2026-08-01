@@ -1,0 +1,22 @@
+{
+  "version": 8,
+  "name": "Undescribed field fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "./tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "name"]
+      }
+    }
+  ]
+}

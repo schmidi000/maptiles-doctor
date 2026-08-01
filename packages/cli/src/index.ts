@@ -253,10 +253,16 @@ function collectSource(value: string, previous: DoctorSourceInput[]): DoctorSour
 }
 
 function parseSeverity(value: string): Severity {
-  if (value in severityRank) {
+  // `in` also answers yes for every inherited `Object.prototype` name, so
+  // `--fail-threshold toString` passed validation and then compared severity
+  // ranks against a function: every comparison was false, and a report full of
+  // broken findings exited 0. Only own keys are severities.
+  if (Object.hasOwn(severityRank, value)) {
     return value as Severity;
   }
-  throw new InvalidArgumentError("Expected severity: info, warning, risky, broken");
+  throw new InvalidArgumentError(
+    `Expected severity: ${Object.keys(severityRank).join(", ")}`
+  );
 }
 
 function parsePositiveInteger(value: string): number {

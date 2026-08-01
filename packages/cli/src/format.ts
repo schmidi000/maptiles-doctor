@@ -23,7 +23,7 @@ export function formatPretty(report: DoctorReport): string {
 export function formatGithubAnnotations(report: DoctorReport): string {
   return [
     ...report.findings.map((finding) => {
-      const command = finding.severity === "broken" ? "error" : "warning";
+      const command = githubAnnotationCommand(finding.severity);
       return `::${command} title=${escapeAnnotation(finding.category)}::${escapeAnnotation(finding.message)}`;
     }),
     ...report.incompleteChecks.map(
@@ -31,6 +31,20 @@ export function formatGithubAnnotations(report: DoctorReport): string {
         `::notice title=${escapeAnnotation(check.category)}::${escapeAnnotation(check.message)}`
     )
   ].join("\n");
+}
+
+/**
+ * `info` is the severity this tool uses deliberately for weak evidence — a name
+ * a partial tile sample did not happen to supply. Emitting it as a workflow
+ * warning both floods the annotation list and overstates the report: SARIF and
+ * VS Code already map `info` to note and information, and GitHub has a notice
+ * annotation that means exactly that.
+ */
+function githubAnnotationCommand(severity: Severity): "error" | "warning" | "notice" {
+  if (severity === "broken") {
+    return "error";
+  }
+  return severity === "info" ? "notice" : "warning";
 }
 
 function statusLabel(status: DoctorReport["status"]): string {

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import type { StyleSpecification } from "@maplibre/maplibre-gl-style-spec";
 import { PNG } from "pngjs";
 import { beforeAll, describe, expect, it } from "vitest";
-import { rewriteStyleForBrowser } from "../src/canary.js";
+import { rewriteStyleForBrowser, runVisualCanaries } from "../src/canary.js";
 import { checkStyleContract } from "../src/checker.js";
 import type { CanarySpec, DoctorReport, SourceContract } from "../src/types.js";
 
@@ -50,7 +50,11 @@ describe("rewriteStyleForBrowser", () => {
     ["legacy", contract({ id: "legacy", kind: "mbtiles", location: "/data/legacy.mbtiles" })]
   ]);
 
-  const { browserStyle, unrenderableSources } = rewriteStyleForBrowser(style, "/style", contracts);
+  const { browserStyle, unrenderableSources, droppedLayers } = rewriteStyleForBrowser(
+    style,
+    "/style",
+    contracts
+  );
   const sources = browserStyle.sources as Record<string, Record<string, unknown>>;
 
   it("serves a PMTiles archive over the harness origin", () => {
@@ -109,6 +113,12 @@ describe("rewriteStyleForBrowser", () => {
       { id: "legacy", reason: "a browser cannot read mbtiles sources" }
     ]);
     expect(browserStyle.layers.map((layer) => layer.id)).toEqual(["a", "b"]);
+  });
+
+  // Named, not just removed. The report has to be able to tell a layer that drew
+  // nothing from one that was never given the chance to draw.
+  it("names the layers it dropped", () => {
+    expect(droppedLayers).toEqual(["c"]);
   });
 
   it("resolves sprite and glyph templates against the style directory", () => {
@@ -254,6 +264,39 @@ describe.skipIf(!browserAvailable)("visual canaries", () => {
       report.incompleteChecks.map((check) => check.id).filter((id) => id.startsWith("canary."))
     ).toContain("canary.source.basemap.unrenderable");
     expect(checkStatus(report, "visual-canary")).toBe("incomplete");
+
+    // The render drew nothing because the only data source was removed before it
+    // ran, so "rendered no features" is a statement about the tool, not the
+    // style. It was reported as risky anyway, and failed the report at a risky
+    // threshold.
+    expect(canaryFindings(report).map((finding) => finding.id)).not.toContain(
+      "canary.mbtiles.no-features"
+    );
+  }, 120_000);
+
+  it("does not blame a layer whose source was left out of the canary", async () => {
+    const report = await checkStyleContract({
+      stylePath: mbtilesStyle,
+      canaries: [
+        {
+          id: "expects",
+          center: [0, 0],
+          zoom: 0,
+          width: 256,
+          height: 256,
+          expectLayers: ["buildings"]
+        }
+      ],
+      sampleTiles: false,
+      timeoutMs: 60_000
+    });
+
+    expect(canaryFindings(report).map((finding) => finding.id)).not.toContain(
+      "canary.expects.layer.buildings.empty"
+    );
+    expect(report.incompleteChecks.map((check) => check.id)).toContain(
+      "canary.expects.layer.buildings.not-rendered"
+    );
   }, 120_000);
 
   it("blocks remote artifacts offline and reports the canary as incomplete", async () => {
@@ -302,3 +345,32 @@ async function hasChromium(): Promise<boolean> {
     return false;
   }
 }
+
+// A canary id becomes a file name in the screenshot and baseline directories. An
+// id of `../escaped` resolved to a sibling of the configured directory, and
+// `writeFile` overwrote whatever was already there.
+describe("canary ids", () => {
+  const style = { version: 8, sources: {}, layers: [] } as unknown as StyleSpecification;
+
+  function run(id: string) {
+    return runVisualCanaries({
+      style,
+      styleDir: "/style",
+      contracts: new Map(),
+      canaries: [{ id, center: [0, 0], zoom: 0 }],
+      timeoutMs: 1_000,
+      allowNetwork: false
+    });
+  }
+
+  it.each(["../escaped", "a/b", "..", ".", "/abs", "with space"])("rejects %s", async (id) => {
+    await expect(run(id)).rejects.toThrow(/not a valid file name/);
+  });
+
+  it("accepts the ids the CLI generates", async () => {
+    // Rejection happens before a browser is needed, so reaching any other
+    // outcome is enough to show the id itself was accepted.
+    await expect(run("-0.1276-51.5072-z14")).resolves.toBeDefined();
+    await expect(run("berlin_2")).resolves.toBeDefined();
+  });
+});

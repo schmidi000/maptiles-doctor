@@ -27,6 +27,11 @@ export async function runAction(): Promise<void> {
     const message = `${finding.category}: ${finding.message}`;
     if (finding.severity === "broken") {
       core.error(message);
+    } else if (finding.severity === "info") {
+      // `info` is weak evidence by design — a name a partial sample did not
+      // supply. Annotating it as a warning floods the run and overstates the
+      // report; SARIF and VS Code already map it to note and information.
+      core.notice(message);
     } else {
       core.warning(message);
     }

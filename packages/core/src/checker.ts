@@ -32,6 +32,7 @@ import {
   type DoctorCheckOptions,
   type DoctorReport,
   type Finding,
+  type FindingCategory,
   type SampledFeature,
   type Severity,
   type SourceContract,
@@ -41,7 +42,7 @@ import {
 
 export async function checkStyleContract(options: DoctorCheckOptions): Promise<DoctorReport> {
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const failThreshold = options.failThreshold ?? "broken";
+  const failThreshold = normalizeThreshold(options.failThreshold);
   const allowNetwork = options.allowNetwork ?? true;
   const sampleTiles = options.sampleTiles ?? true;
   // Absence from a partial sample is weak evidence: three tiles will not contain
@@ -77,15 +78,6 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
       path: String("key" in error ? error.key : "style")
     });
   }
-  checks.push({
-    id: "style-spec",
-    status: styleErrors.length === 0 ? "passed" : "failed",
-    message:
-      styleErrors.length === 0
-        ? "Style specification is valid."
-        : "Style specification errors found."
-  });
-
   const explicitSources = new Map(
     (options.sources ?? []).map((source) => [source.id, source.location])
   );
@@ -191,29 +183,9 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
       reportSampleHealth(sourceId, sample, findings, incompleteChecks);
     }
   }
-  checks.push({
-    id: "tile-sample",
-    status: tileSampleStatus(sampleTiles, contracts, samples),
-    message: sampleTiles
-      ? "Sampled vector tiles for observed layers and properties."
-      : "Tile sampling was disabled; checks used declared metadata only."
-  });
-
   for (const layer of layers) {
     inspectLayer(layer, style, contracts, samples, findings, incompleteChecks, absenceSeverity);
   }
-
-  checks.push({
-    id: "source-layer",
-    status: findings.some(
-      (finding) => finding.category === "source-layer" && finding.severity === "broken"
-    )
-      ? "failed"
-      : incompleteChecks.some((check) => check.category === "source-layer")
-        ? "incomplete"
-        : "passed",
-    message: "Checked style layers against declared and sampled vector layers."
-  });
 
   await inspectSprite(
     style,
@@ -236,26 +208,11 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
     absenceSeverity
   );
 
-  // A check reports on its own findings first. Reading only the incomplete list
-  // let a report carry a broken `sprite.icon.*.missing` finding and an `assets`
-  // check that said `passed`, which is not something a consumer can act on.
-  const assetCategories = new Set(["glyph", "sprite", "icon"]);
-  checks.push({
-    id: "assets",
-    status: findings.some(
-      (finding) => assetCategories.has(finding.category) && finding.severity === "broken"
-    )
-      ? "failed"
-      : incompleteChecks.some((check) => assetCategories.has(check.category))
-        ? "incomplete"
-        : "passed",
-    message: "Checked glyph and sprite references."
-  });
-
   // Canaries are opt-in, so a run without them gets no check entry at all: a
   // check that never ran must not appear as one that passed.
+  let canaryRun: CanaryRun | undefined;
   if (options.canaries?.length) {
-    const run = await runVisualCanaries({
+    canaryRun = await runVisualCanaries({
       style,
       styleDir,
       contracts,
@@ -266,11 +223,62 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
       timeoutMs: timeoutMs,
       allowNetwork
     });
-    reportCanaryRun(run, canaryDiffThreshold(options.maxDiffRatio), findings, incompleteChecks);
+    reportCanaryRun(
+      canaryRun,
+      canaryDiffThreshold(options.maxDiffRatio),
+      findings,
+      incompleteChecks
+    );
+  }
+
+  // Every check status is decided here, once every finding exists. Deciding a
+  // check's status at the point it ran meant reading a half-built finding list:
+  // `tile-sample` was settled before a single layer had been inspected. A check
+  // reports on its own findings first — reading only the incomplete list let a
+  // report carry a broken `sprite.icon.*.missing` finding next to an `assets`
+  // check that said `passed`.
+  checks.push({
+    id: "style-spec",
+    status: categoryStatus(checkCategories["style-spec"], findings, incompleteChecks, failThreshold),
+    message:
+      styleErrors.length === 0
+        ? "Style specification is valid."
+        : "Style specification errors found."
+  });
+  checks.push({
+    id: "tile-sample",
+    status: tileSampleStatus(
+      sampleTiles,
+      contracts,
+      samples,
+      findings,
+      incompleteChecks,
+      failThreshold
+    ),
+    message: sampleTiles
+      ? "Sampled vector tiles for observed layers and properties."
+      : "Tile sampling was disabled; checks used declared metadata only."
+  });
+  checks.push({
+    id: "source-layer",
+    status: categoryStatus(
+      checkCategories["source-layer"],
+      findings,
+      incompleteChecks,
+      failThreshold
+    ),
+    message: "Checked style layers against their sources' declared and sampled vector layers."
+  });
+  checks.push({
+    id: "assets",
+    status: categoryStatus(checkCategories.assets, findings, incompleteChecks, failThreshold),
+    message: "Checked glyph and sprite references."
+  });
+  if (canaryRun) {
     checks.push({
       id: "visual-canary",
-      status: canaryStatus(run, findings),
-      message: `Rendered ${run.observations.length} of ${options.canaries.length} visual canaries.`
+      status: canaryStatus(canaryRun, findings, incompleteChecks, failThreshold),
+      message: `Rendered ${canaryRun.observations.length} of ${options.canaries?.length ?? 0} visual canaries.`
     });
   }
 
@@ -303,6 +311,25 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
     incompleteChecks,
     summary
   });
+}
+
+/**
+ * The gate the whole report hangs on, so it is never taken on trust. A wrapper
+ * that hands core an unchecked string — VS Code reads `failThreshold` straight
+ * out of user settings — must not be able to disable failure by naming a
+ * severity that does not exist: `severityRank[nonsense]` is `undefined`, every
+ * `>=` against it is false, and a report full of broken findings passes.
+ */
+function normalizeThreshold(value: Severity | undefined): Severity {
+  if (value === undefined) {
+    return "broken";
+  }
+  if (!Object.hasOwn(severityRank, value)) {
+    throw new Error(
+      `Unknown fail threshold ${JSON.stringify(value)}. Expected one of: ${Object.keys(severityRank).join(", ")}.`
+    );
+  }
+  return value;
 }
 
 function parseStyleText(styleText: string): StyleSpecification {
@@ -381,14 +408,16 @@ function reportCanaryRun(
     });
   }
 
+  const droppedLayers = new Set(run.droppedLayers);
   for (const observation of run.observations) {
-    reportCanary(observation, maxDiffRatio, findings, incompleteChecks);
+    reportCanary(observation, maxDiffRatio, droppedLayers, findings, incompleteChecks);
   }
 }
 
 function reportCanary(
   observation: CanaryObservation,
   maxDiffRatio: number,
+  droppedLayers: Set<string>,
   findings: Finding[],
   incompleteChecks: DoctorReport["incompleteChecks"]
 ): void {
@@ -438,7 +467,12 @@ function reportCanary(
     });
   }
 
-  if (observation.featureCount === 0) {
+  // An empty render only says something about the style when the style that
+  // rendered was the style under test. Dropping an unrenderable source takes its
+  // layers with it, so "nothing was drawn" is then a statement about what was
+  // removed, not about what is broken — and at a risky threshold that false
+  // finding failed the report.
+  if (observation.featureCount === 0 && droppedLayers.size === 0) {
     findings.push({
       id: `canary.${id}.no-features`,
       severity: "risky",
@@ -449,6 +483,18 @@ function reportCanary(
   }
 
   for (const layerId of observation.expectedButEmpty ?? []) {
+    // The same applies per layer, and more sharply: a layer that was removed
+    // before the render could not have drawn anything, so calling it broken
+    // reports the tool's own limitation as the style's defect.
+    if (droppedLayers.has(layerId)) {
+      incompleteChecks.push({
+        id: `canary.${id}.layer.${layerId}.not-rendered`,
+        category: "visual-canary",
+        message: `Canary ${id} expected layer ${layerId} to render, but its source was left out of the canary, so it was not checked.`,
+        evidence: { canary: id, layerId }
+      });
+      continue;
+    }
     findings.push({
       id: `canary.${id}.layer.${layerId}.empty`,
       severity: "broken",
@@ -502,7 +548,9 @@ function screenshotEvidence(observation: CanaryObservation): Record<string, unkn
 
 function canaryStatus(
   run: CanaryRun,
-  findings: Finding[]
+  findings: Finding[],
+  incompleteChecks: DoctorReport["incompleteChecks"],
+  failThreshold: Severity
 ): DoctorReport["checks"][number]["status"] {
   if (run.unavailable || run.unrenderableSources.length > 0) {
     return "incomplete";
@@ -514,18 +562,70 @@ function canaryStatus(
   ) {
     return "incomplete";
   }
-  return findings.some(
-    (finding) => finding.category === "visual-canary" && finding.severity !== "info"
-  )
-    ? "failed"
-    : "passed";
+  return categoryStatus(checkCategories["visual-canary"], findings, incompleteChecks, failThreshold);
+}
+
+/**
+ * Which check owns which findings. Every category belongs to exactly one check,
+ * so a consumer reading a `failed` report can always find the check that
+ * explains it; `report-schema.test.ts` holds that coverage to the category list
+ * the schema publishes.
+ */
+export const checkCategories = {
+  "style-spec": ["style-spec"],
+  "tile-sample": ["tile-availability", "expression-property"],
+  "source-layer": ["source-layer", "source", "zoom"],
+  assets: ["glyph", "sprite", "icon"],
+  "visual-canary": ["visual-canary"]
+} as const satisfies Record<string, readonly FindingCategory[]>;
+
+/**
+ * A check answers the same question the report does, about its own categories:
+ * did anything here fail the build? Counting only `broken` findings meant a
+ * report could end `failed` on a risky `source-layer` finding while the
+ * `source-layer` check said `passed`, and a machine consumer had no way to tell
+ * which check to look at. `incomplete` still outranks a clean pass, because a
+ * check that could not run has not proved anything.
+ */
+function categoryStatus(
+  categories: readonly string[],
+  findings: Finding[],
+  incompleteChecks: DoctorReport["incompleteChecks"],
+  failThreshold: Severity
+): DoctorReport["checks"][number]["status"] {
+  const owned = new Set(categories);
+  if (
+    findings.some(
+      (finding) =>
+        owned.has(finding.category) &&
+        severityRank[finding.severity] >= severityRank[failThreshold]
+    )
+  ) {
+    return "failed";
+  }
+  return incompleteChecks.some((check) => owned.has(check.category)) ? "incomplete" : "passed";
 }
 
 function tileSampleStatus(
   enabled: boolean,
   contracts: Map<string, SourceContract>,
-  samples: Map<string, TileSample>
+  samples: Map<string, TileSample>,
+  findings: Finding[],
+  incompleteChecks: DoctorReport["incompleteChecks"],
+  failThreshold: Severity
 ): DoctorReport["checks"][number]["status"] {
+  // The findings sampling produced outrank the health of the sample itself: a
+  // run that read its tiles cleanly and then found something failing is a failed
+  // check, not a passed one.
+  const fromFindings = categoryStatus(
+    checkCategories["tile-sample"],
+    findings,
+    incompleteChecks,
+    failThreshold
+  );
+  if (fromFindings === "failed") {
+    return "failed";
+  }
   if (!enabled || contracts.size === 0) {
     return "incomplete";
   }
@@ -535,7 +635,7 @@ function tileSampleStatus(
   const usable = [...samples.values()].filter(
     (sample) => !sample.skipped && sample.failures.length === 0 && sample.retrieved.length > 0
   );
-  return usable.length === samples.size ? "passed" : "incomplete";
+  return usable.length === samples.size ? fromFindings : "incomplete";
 }
 
 function inspectLayer(
@@ -701,12 +801,28 @@ async function inspectSprite(
   incompleteChecks: DoctorReport["incompleteChecks"]
 ): Promise<void> {
   const iconImages = usage.iconImages;
-  if (!style.sprite || (iconImages.size === 0 && usage.iconTemplates.length === 0)) {
+  if (!style.sprite) {
     return;
   }
 
   const sources = spriteSources(style.sprite);
   if (sources.length === 0) {
+    return;
+  }
+
+  // An `icon-image` the expression reducer could not enumerate leaves the layer
+  // unchecked. Saying so is the only honest result: the alternative is a silent
+  // pass for a layer whose icons were never looked up at all.
+  for (const unresolved of usage.unresolvedIcons) {
+    incompleteChecks.push({
+      id: `layer.${unresolved.layerId}.icon-image.unresolved`,
+      category: "icon",
+      message: `Layer ${unresolved.layerId} builds icon-image from ${unresolved.reason}, so its icons could not be checked against the sprite.`,
+      evidence: { layerId: unresolved.layerId }
+    });
+  }
+
+  if (iconImages.size === 0 && usage.iconTemplates.length === 0) {
     return;
   }
   // The array form of `sprite` declares several sprites and namespaces every
@@ -1089,7 +1205,12 @@ function inspectExpressionProperties(
     const sampled = samples.get(sourceId)?.layers.get(sourceLayer);
 
     for (const property of properties) {
-      const declared = declaredFields ? Boolean(declaredFields[property]) : undefined;
+      // A TileJSON `fields` value is the field's *description*, not a flag, so
+      // truthiness is the wrong question. `fields: { "name": "" }` declares
+      // `name` with no description written for it, and reading that as absent
+      // produced a risky finding that suggested the very field it claimed was
+      // missing.
+      const declared = declaredFields ? Object.hasOwn(declaredFields, property) : undefined;
       const observed = sampled ? sampled.properties.has(property) : undefined;
 
       // Sampled features outrank stale metadata in both directions.

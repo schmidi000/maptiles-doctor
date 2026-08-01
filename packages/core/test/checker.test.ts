@@ -620,3 +620,208 @@ describe("a remote style with relative references", () => {
     expect(requested).toContain("/styles/basemap/tiles/0/0/0.mvt");
   });
 });
+
+// `severityRank[failThreshold]` is `undefined` for a name that is not a
+// severity, so every `>=` against it is false and a report full of broken
+// findings passes. Wrappers read this value from user input — a CLI flag, a
+// workflow file, a VS Code setting — so core refuses it rather than trusting it.
+describe("the fail threshold", () => {
+  it.each(["toString", "constructor", "nonsense"])("rejects %s", async (value) => {
+    await expect(
+      checkStyleContract({
+        stylePath: fixture("broken-style"),
+        sources: [{ id: "openmaptiles", location: tilejson }],
+        failThreshold: value as never
+      })
+    ).rejects.toThrow(/Unknown fail threshold/);
+  });
+
+  it("still fails a broken style at the default threshold", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("broken-style"),
+      sources: [{ id: "openmaptiles", location: tilejson }]
+    });
+
+    expect(report.summary.broken).toBeGreaterThan(0);
+    expect(report.status).toBe("failed");
+  });
+});
+
+// TileJSON `fields` values are field *descriptions*, so testing them for
+// truthiness read a field documented with an empty string as one that does not
+// exist — and then suggested the very field it had just called missing.
+describe("a source-layer field declared without a description", () => {
+  it("is treated as declared", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("undescribed-field"),
+      sampleTiles: false
+    });
+
+    expect(report.findings.filter((finding) => finding.category === "expression-property")).toEqual(
+      []
+    );
+  });
+});
+
+// A check that says `passed` while the report it belongs to says `failed` leaves
+// a machine consumer no way to tell which check to look at.
+describe("check statuses", () => {
+  it("fail with the report when a finding meets the configured threshold", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("stale-metadata"),
+      failThreshold: "info",
+      sampledAbsenceSeverity: "info"
+    });
+
+    expect(report.status).toBe("failed");
+    // The finding is `expression-property`, which the tile-sample check owns.
+    expect(report.findings.map((finding) => finding.category)).toContain("expression-property");
+    expect(report.checks.find((check) => check.id === "tile-sample")?.status).toBe("failed");
+    // Whatever failed the report has to be visible as a failed check.
+    expect(report.checks.some((check) => check.status === "failed")).toBe(true);
+  });
+
+  it("do not report failed when the same finding is below the threshold", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("stale-metadata"),
+      failThreshold: "broken",
+      sampledAbsenceSeverity: "info"
+    });
+
+    expect(report.status).not.toBe("failed");
+    expect(report.checks.some((check) => check.status === "failed")).toBe(false);
+  });
+});
+
+// Undici does not follow redirects unless told to, so a style, TileJSON, sprite
+// index, or tile behind a `302` failed with `HTTP 302` while the artifact at the
+// destination was perfectly readable.
+describe("redirecting endpoints", () => {
+  let origin = "";
+  const requested: string[] = [];
+
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    requested.push(url.pathname);
+
+    if (url.pathname === "/tilejson.json") {
+      response.writeHead(302, { location: "/actual/tilejson.json" }).end();
+      return;
+    }
+    if (url.pathname === "/actual/tilejson.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          tilejson: "3.0.0",
+          minzoom: 0,
+          maxzoom: 14,
+          tiles: [`http://127.0.0.1:${(server.address() as AddressInfo).port}/t/{z}/{x}/{y}.pbf`],
+          vector_layers: [{ id: "poi", fields: { name: "String" }, minzoom: 0, maxzoom: 14 }]
+        })
+      );
+      return;
+    }
+    if (url.pathname === "/gone.json") {
+      response.writeHead(302, { location: "/missing.json" }).end();
+      return;
+    }
+    response.writeHead(404).end();
+  });
+
+  beforeAll(async () => {
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  it("reads a source contract through a redirect", async () => {
+    requested.length = 0;
+    const report = await checkStyleContract({
+      stylePath: fixture("simple-style"),
+      sources: [{ id: "openmaptiles", location: `${origin}/tilejson.json` }],
+      sampleTiles: false,
+      timeoutMs: 5_000
+    });
+
+    expect(requested).toContain("/actual/tilejson.json");
+    expect(report.incompleteChecks.map((check) => check.id)).not.toContain(
+      "source.openmaptiles.read-failed"
+    );
+  });
+
+  it("does not treat a redirect to a missing artifact as reachable", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("simple-style"),
+      sources: [{ id: "openmaptiles", location: `${origin}/gone.json` }],
+      sampleTiles: false,
+      timeoutMs: 5_000
+    });
+
+    expect(report.incompleteChecks.map((check) => check.id)).toContain(
+      "source.openmaptiles.read-failed"
+    );
+  });
+});
+
+// The offline promise is that every remote artifact becomes an incomplete check
+// *without being fetched*. A style served over HTTP whose inline source declares
+// a relative tile template was classified local, and three tiles were pulled
+// from the remote host with `allowNetwork: false`.
+describe("an air-gapped run against a remote style", () => {
+  const requested: string[] = [];
+  let origin = "";
+
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    requested.push(url.pathname);
+
+    if (url.pathname === "/styles/basemap/style.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          version: 8,
+          sources: {
+            basemap: {
+              type: "vector",
+              tiles: ["../tiles/{z}/{x}/{y}.pbf"],
+              minzoom: 0,
+              maxzoom: 5
+            }
+          },
+          layers: [
+            { id: "buildings", type: "fill", source: "basemap", "source-layer": "buildings" }
+          ]
+        })
+      );
+      return;
+    }
+
+    response.writeHead(200, { "content-type": "application/x-protobuf" }).end(Buffer.alloc(0));
+  });
+
+  beforeAll(async () => {
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  it("does not request a tile whose relative template resolves to the remote host", async () => {
+    // The style itself has to be fetched to be checked at all; the tiles it
+    // names must not be.
+    requested.length = 0;
+    const report = await checkStyleContract({
+      stylePath: `${origin}/styles/basemap/style.json`,
+      allowNetwork: false,
+      timeoutMs: 5_000
+    });
+
+    expect(requested.filter((path) => path.includes(".pbf"))).toEqual([]);
+    expect(report.status).not.toBe("passed");
+  });
+});

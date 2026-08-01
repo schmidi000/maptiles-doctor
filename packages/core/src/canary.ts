@@ -45,7 +45,11 @@ export interface VisualCanaryOptions {
  * nothing about the style.
  */
 export async function runVisualCanaries(options: VisualCanaryOptions): Promise<CanaryRun> {
-  const { browserStyle, unrenderableSources } = rewriteStyleForBrowser(
+  for (const canary of options.canaries) {
+    assertSafeCanaryId(canary.id);
+  }
+
+  const { browserStyle, unrenderableSources, droppedLayers } = rewriteStyleForBrowser(
     options.style,
     options.styleDir,
     options.contracts
@@ -60,6 +64,7 @@ export async function runVisualCanaries(options: VisualCanaryOptions): Promise<C
     return {
       observations: [],
       unrenderableSources,
+      droppedLayers,
       unavailable: `Visual canaries need the optional playwright and maplibre-gl packages: ${messageOf(error)}`
     };
   }
@@ -75,6 +80,7 @@ export async function runVisualCanaries(options: VisualCanaryOptions): Promise<C
     return {
       observations: [],
       unrenderableSources,
+      droppedLayers,
       unavailable: `Could not launch Chromium for visual canaries: ${messageOf(error)}`
     };
   }
@@ -84,9 +90,26 @@ export async function runVisualCanaries(options: VisualCanaryOptions): Promise<C
     for (const canary of options.canaries) {
       observations.push(await renderCanary(browser, assets, browserStyle, canary, options));
     }
-    return { observations, unrenderableSources };
+    return { observations, unrenderableSources, droppedLayers };
   } finally {
     await browser.close();
+  }
+}
+
+/**
+ * A canary id becomes a file name in the screenshot and baseline directories, so
+ * it has to stay one path segment. An id of `../escaped` resolved to a sibling
+ * of the configured directory and `writeFile` overwrote whatever was there —
+ * and the baseline read walked out of the directory the same way. Rejecting the
+ * id outright is clearer than silently rewriting a name the report then cites.
+ */
+const safeCanaryId = /^[A-Za-z0-9._-]+$/;
+
+function assertSafeCanaryId(id: string): void {
+  if (!safeCanaryId.test(id) || id === "." || id === "..") {
+    throw new Error(
+      `Canary id ${JSON.stringify(id)} is not a valid file name. Use letters, digits, dot, underscore, or hyphen.`
+    );
   }
 }
 
@@ -266,6 +289,7 @@ export function rewriteStyleForBrowser(
 ): {
   browserStyle: StyleSpecification;
   unrenderableSources: Array<{ id: string; reason: string }>;
+  droppedLayers: string[];
 } {
   const unrenderableSources: Array<{ id: string; reason: string }> = [];
   const sources: Record<string, unknown> = {};
@@ -330,9 +354,16 @@ export function rewriteStyleForBrowser(
   }
 
   const droppedSources = new Set(unrenderableSources.map((entry) => entry.id));
+  const droppedLayers: string[] = [];
   const layers = (Array.isArray(style.layers) ? style.layers : []).filter((layer) => {
-    const source = (layer as Record<string, unknown>).source;
-    return typeof source !== "string" || !droppedSources.has(source);
+    const record = layer as Record<string, unknown>;
+    if (typeof record.source === "string" && droppedSources.has(record.source)) {
+      // Recorded, not just discarded: the report has to be able to tell a layer
+      // that drew nothing from one that was never given the chance.
+      droppedLayers.push(typeof record.id === "string" ? record.id : "unknown-layer");
+      return false;
+    }
+    return true;
   });
 
   const browserStyle = {
@@ -343,7 +374,7 @@ export function rewriteStyleForBrowser(
     ...(style.glyphs === undefined ? {} : { glyphs: toBrowserUrl(style.glyphs, styleDir) })
   } as StyleSpecification;
 
-  return { browserStyle, unrenderableSources };
+  return { browserStyle, unrenderableSources, droppedLayers };
 }
 
 function absolutizeSource(

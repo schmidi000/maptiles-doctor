@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
-import { request } from "undici";
+import { getGlobalDispatcher, interceptors, request, type Dispatcher } from "undici";
 
 export function resolveLocation(location: string, base = process.cwd()): string {
   if (isHttpUrl(location)) {
@@ -43,12 +43,31 @@ export function isHttpUrl(location: string): boolean {
   return location.startsWith("http://") || location.startsWith("https://");
 }
 
+/**
+ * Redirects are ordinary for tile infrastructure — a CDN in front of a bucket, a
+ * `/latest` alias, a signed-URL handoff. Undici does not follow them unless
+ * asked, so a style, TileJSON, sprite index, or tile behind a `302` failed with
+ * `HTTP 302` while the artifact at the destination was perfectly readable. The
+ * limit is small and explicit: enough for a real chain, not enough for a loop.
+ */
+const redirect = interceptors.redirect({ maxRedirections: 5, throwOnMaxRedirect: false });
+
+/**
+ * Composed per call rather than once at load, so replacing the global dispatcher
+ * — which a test doing `setGlobalDispatcher(new MockAgent())` does — still takes
+ * effect here instead of being shadowed by a dispatcher captured at import time.
+ */
+function followingRedirects(): Dispatcher {
+  return getGlobalDispatcher().compose(redirect);
+}
+
 export async function readText(location: string, timeoutMs: number): Promise<string> {
   if (isHttpUrl(location)) {
     const response = await request(location, {
       method: "GET",
       headersTimeout: timeoutMs,
-      bodyTimeout: timeoutMs
+      bodyTimeout: timeoutMs,
+      dispatcher: followingRedirects()
     });
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw new Error(`HTTP ${response.statusCode}`);
@@ -70,7 +89,8 @@ export async function readRemoteBytes(
   const response = await request(location, {
     method: "GET",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
 
   if (response.statusCode === 404 || response.statusCode === 204) {
@@ -113,21 +133,31 @@ export async function headOrGetOk(location: string, timeoutMs: number): Promise<
   const head = await request(location, {
     method: "HEAD",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
 
   // `dump()` discards the body without the abort error that destroying an
   // unconsumed undici stream raises.
   await head.body.dump();
-  if (head.statusCode >= 200 && head.statusCode < 400) {
+  // The status of the *final* response, now that redirects are followed. The
+  // previous `< 400` accepted a bare `302` as proof of reachability without
+  // ever looking at where it pointed — a redirect chain ending in 404 counted
+  // as a healthy artifact.
+  if (isOk(head.statusCode)) {
     return true;
   }
 
   const get = await request(location, {
     method: "GET",
     headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs
+    bodyTimeout: timeoutMs,
+    dispatcher: followingRedirects()
   });
   await get.body.dump();
-  return get.statusCode >= 200 && get.statusCode < 400;
+  return isOk(get.statusCode);
+}
+
+function isOk(statusCode: number): boolean {
+  return statusCode >= 200 && statusCode < 300;
 }
