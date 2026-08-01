@@ -1,0 +1,34 @@
+{
+  "version": 8,
+  "name": "Zoom mismatch fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "./tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings-below-source",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 0,
+      "maxzoom": 5,
+      "paint": {
+        "fill-color": "#cccccc"
+      }
+    },
+    {
+      "id": "buildings-starting-below-source",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 2,
+      "maxzoom": 12,
+      "paint": {
+        "fill-color": "#dddddd"
+      }
+    }
+  ]
+}

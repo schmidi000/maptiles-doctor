@@ -1,0 +1,35 @@
+{
+  "version": 8,
+  "name": "Local glyph fixture style",
+  "glyphs": "./glyphs/{fontstack}/{range}.pbf",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "name"],
+        "text-font": ["Noto Sans Regular"]
+      }
+    },
+    {
+      "id": "poi-labels-missing-font",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "class"],
+        "text-font": ["Missing Font Regular"]
+      }
+    }
+  ]
+}

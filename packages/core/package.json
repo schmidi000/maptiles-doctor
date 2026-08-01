@@ -1,0 +1,46 @@
+{
+  "name": "@maptiles-doctor/core",
+  "version": "0.1.0",
+  "description": "Core contract checker for MapTiles Doctor.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run packages/core/test"
+  },
+  "dependencies": {
+    "@mapbox/vector-tile": "3.0.0",
+    "@maplibre/maplibre-gl-style-spec": "26.2.1",
+    "better-sqlite3": "13.0.2",
+    "pbf": "5.1.2",
+    "pixelmatch": "7.2.0",
+    "pmtiles": "4.4.1",
+    "pngjs": "7.0.0",
+    "undici": "8.9.0",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "maplibre-gl": "^6.0.0",
+    "playwright": "^1.62.1"
+  },
+  "peerDependenciesMeta": {
+    "maplibre-gl": {
+      "optional": true
+    },
+    "playwright": {
+      "optional": true
+    }
+  }
+}

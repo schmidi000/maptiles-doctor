@@ -1,0 +1,29 @@
+node_modules/
+dist/
+# Built when a .vsix is packaged, unlike the action bundle it is not committed.
+packages/vscode/extension-dist/
+packages/vscode/LICENSE
+fixtures/generated/
+# Third-party styles and the reports made from them: they change without notice,
+# so committing them would turn a provider-side edit into a repo diff.
+validation/.cache/
+validation/reports/
+validation/.seeded/
+coverage/
+.vitest/
+*.tsbuildinfo
+*.vsix
+.DS_Store
+.env
+.env.*
+!.env.example
+CLAUDE.local.md
+
+# Coding agent configuration and internal planning docs: kept on disk, out of
+# the repository.
+.claude/
+CLAUDE.md
+AGENTS.md
+skills/
+docs/
+phase_8_impl.md

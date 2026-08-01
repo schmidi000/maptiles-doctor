@@ -1,0 +1,114 @@
+{
+  "name": "maptiles-doctor-vscode",
+  "displayName": "MapTiles Doctor",
+  "publisher": "schmidi000",
+  "version": "0.1.0",
+  "description": "VS Code diagnostics for MapLibre/Mapbox style-to-tile contract checks.",
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "maplibre",
+    "mapbox",
+    "pmtiles",
+    "mbtiles",
+    "vector tiles"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmidi000/maptiles-doctor.git",
+    "directory": "packages/vscode"
+  },
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./extension-dist/extension.cjs",
+  "activationEvents": [
+    "onLanguage:json",
+    "onLanguage:jsonc"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "maptilesDoctor.check",
+        "title": "Run MapTiles Doctor",
+        "category": "MapTiles Doctor"
+      },
+      {
+        "command": "maptilesDoctor.openReport",
+        "title": "Open Report",
+        "category": "MapTiles Doctor"
+      }
+    ],
+    "configuration": {
+      "title": "MapTiles Doctor",
+      "properties": {
+        "maptilesDoctor.sources": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "markdownDescription": "Source overrides keyed by style source id, for example `{ \"basemap\": \"tiles/world.pmtiles\" }`. Relative paths resolve against the workspace folder."
+        },
+        "maptilesDoctor.failThreshold": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "risky",
+            "broken"
+          ],
+          "default": "broken",
+          "description": "Lowest severity that marks the report as failed."
+        },
+        "maptilesDoctor.offline": {
+          "type": "boolean",
+          "default": false,
+          "description": "Report remote artifacts as incomplete instead of fetching them."
+        },
+        "maptilesDoctor.sampleTiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Read a few real tiles per source and use the observed layers and properties as evidence."
+        },
+        "maptilesDoctor.maxSampleTiles": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Tile addresses probed per source when sampling is enabled."
+        },
+        "maptilesDoctor.timeoutMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1,
+          "description": "Network timeout in milliseconds."
+        },
+        "maptilesDoctor.checkOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check a style file when it is opened."
+        },
+        "maptilesDoctor.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check a style file when it is saved."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@maptiles-doctor/core": "0.1.0",
+    "@maptiles-doctor/report": "0.1.0",
+    "jsonc-parser": "3.3.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.125.0"
+  },
+  "engines": {
+    "vscode": "^1.125.0"
+  }
+}

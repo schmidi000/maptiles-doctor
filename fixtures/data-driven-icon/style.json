@@ -1,0 +1,59 @@
+{
+  "version": 8,
+  "name": "Data-driven icon fixture style",
+  "$comment": "The sampled poi features carry class=cafe and class=bar. The sprite holds icon-cafe but not icon-bar, so only poi-concat and poi-token may report, and only for icon-bar. poi-coerced proves an operator name is not an icon, step-default proves an empty branch is not one, and poi-unknown-property must report an incomplete check rather than a finding.",
+  "sprite": "./sprite",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-concat",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": ["concat", "icon-", ["get", "class"]]
+      }
+    },
+    {
+      "id": "poi-token",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "icon-{class}"
+      }
+    },
+    {
+      "id": "poi-coerced",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": ["to-string", ["get", "class"]]
+      }
+    },
+    {
+      "id": "step-default",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": ["step", ["zoom"], "marker", 10, ""]
+      }
+    },
+    {
+      "id": "poi-unknown-property",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": ["get", "brand"]
+      }
+    }
+  ]
+}

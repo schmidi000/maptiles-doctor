@@ -1,0 +1,29 @@
+{
+  "name": "@maptiles-doctor/action",
+  "version": "0.1.0",
+  "description": "GitHub Action wrapper for MapTiles Doctor.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "action-dist",
+    "action.yml"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1",
+    "@maptiles-doctor/core": "0.1.0",
+    "@maptiles-doctor/report": "0.1.0"
+  }
+}

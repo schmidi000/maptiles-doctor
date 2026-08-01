@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Unreachable remote source fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "https://tiles.invalid.test/tiles.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": "#cccccc"
+      }
+    }
+  ]
+}

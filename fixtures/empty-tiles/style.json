@@ -1,0 +1,22 @@
+{
+  "version": 8,
+  "name": "Source with no readable tiles fixture style",
+  "sources": {
+    "basemap": {
+      "type": "vector",
+      "url": "./tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "name"]
+      }
+    }
+  ]
+}

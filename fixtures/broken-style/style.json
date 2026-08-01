@@ -1,0 +1,35 @@
+{
+  "version": 8,
+  "name": "Broken fixture style",
+  "sprite": "../simple-style/sprite",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "3d-buildings",
+      "type": "fill-extrusion",
+      "source": "openmaptiles",
+      "source-layer": "building",
+      "minzoom": 12,
+      "maxzoom": 15,
+      "paint": {
+        "fill-extrusion-height": ["get", "missing_height"]
+      }
+    },
+    {
+      "id": "cafes",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "icon-image": "cafe",
+        "text-field": ["get", "missing_name"]
+      }
+    }
+  ]
+}

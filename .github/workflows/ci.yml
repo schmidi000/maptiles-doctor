@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.18.1
+          cache: npm
+      - run: npm ci
+      # Visual canaries skip themselves when no browser can be launched, so the
+      # runner needs Chromium for them to actually run here.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - run: npm run coverage
+
+  action:
+    # Runs the committed bundle exactly as a consumer would, which is the only
+    # way to catch a bundle that cannot execute on a runner.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.18.1
+          cache: npm
+      - run: npm ci
+      - name: Build generated fixtures
+        run: npm run fixtures:build
+      - name: Run the action against a passing fixture
+        id: passing
+        uses: ./packages/action
+        with:
+          style: fixtures/simple-style/style.json
+          sources: openmaptiles=fixtures/simple-style/tilejson.json
+          report: passing-report.json
+      - name: Assert the passing report
+        run: |
+          test "$(jq -r .status '${{ steps.passing.outputs.report }}')" = passed
+      - name: Run the action against a broken fixture
+        id: broken
+        continue-on-error: true
+        uses: ./packages/action
+        with:
+          style: fixtures/broken-style/style.json
+          sources: openmaptiles=fixtures/simple-style/tilejson.json
+          report: broken-report.json
+      - name: Assert the broken fixture failed the step
+        run: |
+          test "${{ steps.broken.outcome }}" = failure
+          test "$(jq -r .status broken-report.json)" = failed
+          test "$(jq -r .summary.broken broken-report.json)" -eq 2

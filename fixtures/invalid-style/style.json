@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Invalid fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": "not-a-color"
+      }
+    }
+  ]
+}

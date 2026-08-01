@@ -1,0 +1,8 @@
+# Everything the bundle already contains, plus build inputs a consumer of the
+# .vsix never needs. `extension-dist/extension.cjs` is the whole extension.
+src/**
+test/**
+dist/**
+tsconfig.json
+tsconfig.tsbuildinfo
+.vscodeignore

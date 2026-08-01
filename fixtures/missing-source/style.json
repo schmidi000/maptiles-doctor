@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Missing source fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptile",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": "#cccccc"
+      }
+    }
+  ]
+}

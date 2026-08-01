@@ -1,0 +1,16 @@
+{
+  "tilejson": "3.0.0",
+  "name": "fixture-empty-tiles",
+  "minzoom": 0,
+  "maxzoom": 14,
+  "bounds": [-180, -85, 180, 85],
+  "tiles": ["./no-tiles-here/{z}/{x}/{y}.pbf"],
+  "vector_layers": [
+    {
+      "id": "poi",
+      "fields": { "name": "String" },
+      "minzoom": 0,
+      "maxzoom": 14
+    }
+  ]
+}

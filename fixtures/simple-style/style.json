@@ -1,0 +1,35 @@
+{
+  "version": 8,
+  "name": "Fixture style",
+  "sprite": "./sprite",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "./tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": ["case", [">", ["get", "height"], 20], "#888888", "#cccccc"]
+      }
+    },
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "name"],
+        "icon-image": "marker"
+      }
+    }
+  ]
+}

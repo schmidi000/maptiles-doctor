@@ -1,0 +1,44 @@
+{
+  "version": 8,
+  "name": "Overzoom fixture style",
+  "$comment": "Every layer here draws above the source maxzoom of 14, which MapLibre serves by scaling its deepest tiles. This is how vector basemaps show detail at high zoom, so none of these layers may produce a zoom finding.",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings-overzoom-only",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 16,
+      "maxzoom": 24,
+      "paint": {
+        "fill-color": "#cccccc"
+      }
+    },
+    {
+      "id": "buildings-spanning-source-maxzoom",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 22,
+      "paint": {
+        "fill-color": "#dddddd"
+      }
+    },
+    {
+      "id": "poi-unbounded",
+      "type": "circle",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "paint": {
+        "circle-color": "#333333"
+      }
+    }
+  ]
+}

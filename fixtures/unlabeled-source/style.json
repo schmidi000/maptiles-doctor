@@ -1,0 +1,42 @@
+{
+  "version": 8,
+  "name": "Source without vector_layers metadata fixture style",
+  "sources": {
+    "basemap": {
+      "type": "vector",
+      "url": "pmtiles://../generated/basemap-no-metadata.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "text-field": ["get", "name"]
+      }
+    },
+    {
+      "id": "waterways",
+      "type": "line",
+      "source": "basemap",
+      "source-layer": "waterways",
+      "maxzoom": 14,
+      "paint": {
+        "line-color": "#88aacc"
+      }
+    },
+    {
+      "id": "buildings-by-operator",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "buildings",
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": ["match", ["get", "operator"], "city", "#8888aa", "#cccccc"]
+      }
+    }
+  ]
+}

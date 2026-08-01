@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Stale metadata fixture style",
+  "sources": {
+    "basemap": {
+      "type": "vector",
+      "url": "pmtiles://../generated/basemap.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "buildings-by-class",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "buildings",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "paint": {
+        "fill-color": ["match", ["get", "class"], "civic", "#8888aa", "#cccccc"]
+      }
+    }
+  ]
+}

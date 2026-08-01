@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Missing sprite fixture style",
+  "sprite": "./sprite",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "layout": {
+        "icon-image": "marker"
+      }
+    }
+  ]
+}

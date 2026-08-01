@@ -1,0 +1,27 @@
+name: MapTiles Doctor
+description: Validate MapLibre/Mapbox style contracts against tile artifacts.
+inputs:
+  style:
+    description: Path to the style JSON file.
+    required: true
+  sources:
+    description: Newline-separated source overrides in id=path-or-url format.
+    required: false
+  fail-threshold:
+    description: Severity threshold for failing the workflow.
+    default: broken
+  report:
+    description: Path to write JSON report.
+    default: maptiles-doctor-report.json
+  offline:
+    description: Report remote artifacts as incomplete instead of fetching them.
+    default: "false"
+  skip-tile-sampling:
+    description: Check declared metadata only, without reading tiles.
+    default: "false"
+outputs:
+  report:
+    description: Report path.
+runs:
+  using: node24
+  main: action-dist/index.cjs

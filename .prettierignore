@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+
+# Generated artifacts, kept byte-for-byte as their generator emits them.
+packages/action/action-dist/
+packages/vscode/extension-dist/
+fixtures/generated/

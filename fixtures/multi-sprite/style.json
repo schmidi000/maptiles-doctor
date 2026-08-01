@@ -1,0 +1,53 @@
+{
+  "version": 8,
+  "name": "Multi-sprite fixture style",
+  "$comment": "The array form of `sprite` namespaces every icon reference as <sprite-id>:<icon-name>. Only basic:icon-cafe, whose prefix is a typo for a declared sprite, and basics:icon-absent may be reported; the two icons that resolve into their own sprite must not be.",
+  "sprite": [
+    { "id": "basics", "url": "./basics" },
+    { "id": "extra", "url": "./extra" }
+  ],
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-from-basics",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "basics:icon-cafe"
+      }
+    },
+    {
+      "id": "poi-from-extra",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "extra:icon-star"
+      }
+    },
+    {
+      "id": "poi-absent-from-declared-sprite",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "basics:icon-absent"
+      }
+    },
+    {
+      "id": "poi-from-undeclared-sprite",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "basic:icon-cafe"
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "version": 8,
+  "name": "Canary fixture style",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#ffffff"
+      }
+    },
+    {
+      "id": "poi-dots",
+      "type": "circle",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "maxzoom": 14,
+      "paint": {
+        "circle-radius": 12,
+        "circle-color": "#ff0000"
+      }
+    }
+  ]
+}

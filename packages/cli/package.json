@@ -1,0 +1,33 @@
+{
+  "name": "maptiles-doctor",
+  "version": "0.1.0",
+  "description": "CLI for validating MapLibre/Mapbox style-to-tile contracts.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "maptiles-doctor": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "vitest run packages/cli/test"
+  },
+  "dependencies": {
+    "@maptiles-doctor/core": "0.1.0",
+    "@maptiles-doctor/report": "0.1.0",
+    "chalk": "6.0.0",
+    "commander": "15.0.0",
+    "zod": "4.4.3"
+  }
+}

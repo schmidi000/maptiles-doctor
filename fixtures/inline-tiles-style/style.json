@@ -1,0 +1,46 @@
+{
+  "version": 8,
+  "name": "Inline tiles fixture style",
+  "$comment": "Both sources declare their tile templates inline instead of pointing at a TileJSON. The only URL available is a {z}/{x}/{y} template, so the contract has to be read from the style rather than fetched. The raster source must not be sampled as vector tiles.",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "tiles": ["../generated/tiles/{z}/{x}/{y}.pbf"],
+      "minzoom": 0,
+      "maxzoom": 14,
+      "bounds": [-180, -85.0511, 180, 85.0511]
+    },
+    "hillshade": {
+      "type": "raster",
+      "tiles": ["../generated/tiles/{z}/{x}/{y}.png"],
+      "minzoom": 0,
+      "maxzoom": 14,
+      "tileSize": 256
+    }
+  },
+  "layers": [
+    {
+      "id": "hillshade-layer",
+      "type": "raster",
+      "source": "hillshade"
+    },
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "buildings",
+      "paint": {
+        "fill-color": "#cccccc"
+      }
+    },
+    {
+      "id": "not-in-any-tile",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "definitely_absent",
+      "paint": {
+        "fill-color": "#eeeeee"
+      }
+    }
+  ]
+}
