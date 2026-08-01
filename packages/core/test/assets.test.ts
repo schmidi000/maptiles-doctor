@@ -110,6 +110,48 @@ describe("sprite checks", () => {
     });
   });
 
+  // An `icon-image` the expression reducer cannot enumerate leaves the layer
+  // unchecked. Before, that layer simply vanished from the report: no finding,
+  // no incomplete check, and an `assets` check that said everything was fine.
+  describe("an icon-image that cannot be reduced to names", () => {
+    async function unresolvable() {
+      return checkStyleContract({ stylePath: fixture("unresolvable-icon"), sampleTiles: false });
+    }
+
+    it("reports the layer as incomplete rather than silently skipping it", async () => {
+      const report = await unresolvable();
+
+      expect(
+        report.incompleteChecks.find(
+          (item) => item.id === "layer.poi-unmodellable.icon-image.unresolved"
+        )
+      ).toMatchObject({
+        category: "icon",
+        evidence: { layerId: "poi-unmodellable" }
+      });
+    });
+
+    it("keeps that layer out of the findings, since nothing was proved about it", async () => {
+      const report = await unresolvable();
+
+      expect(report.findings.filter((item) => item.layerId === "poi-unmodellable")).toEqual([]);
+    });
+
+    it("still checks the icons it can enumerate on other layers", async () => {
+      const report = await unresolvable();
+
+      // `marker` is in the sprite, so it must not be reported.
+      expect(report.findings.filter((item) => item.category === "icon")).toEqual([]);
+    });
+
+    it("carries the uncertainty into the assets check and the report status", async () => {
+      const report = await unresolvable();
+
+      expect(report.checks.find((check) => check.id === "assets")?.status).toBe("incomplete");
+      expect(report.status).toBe("incomplete");
+    });
+  });
+
   // An `icon-image` built from feature data has no name until a feature supplies
   // one, so the sampled tiles are the only place its names exist. The sampled
   // poi features carry class=cafe and class=bar; the sprite has icon-cafe but
@@ -348,5 +390,154 @@ describe("remote assets", () => {
     const report = await checkStyleContract({ stylePath, timeoutMs: 5_000 });
 
     expect(Object.keys(report.artifactHashes)).toEqual([stylePath]);
+  });
+});
+
+// Every remote artifact becomes an incomplete check when the network is off,
+// and an unreachable one becomes an incomplete check when it is on. Neither may
+// come back as a silent pass: a check that could not run has proved nothing.
+describe("glyph endpoints that cannot be checked", () => {
+  let workDir: string;
+
+  async function styleWithGlyphs(glyphs: string): Promise<string> {
+    const stylePath = join(workDir, `${Buffer.from(glyphs).toString("hex").slice(0, 16)}.json`);
+    await writeFile(
+      stylePath,
+      JSON.stringify({
+        version: 8,
+        glyphs,
+        // A symbol layer needs a source to be spec-valid, and an inline one is
+        // never fetched, so the glyph endpoint is the only thing under test.
+        sources: {
+          basemap: {
+            type: "vector",
+            tiles: ["https://tiles.invalid.test/{z}/{x}/{y}.pbf"],
+            minzoom: 0,
+            maxzoom: 2
+          }
+        },
+        layers: [
+          {
+            id: "labels",
+            type: "symbol",
+            source: "basemap",
+            "source-layer": "poi",
+            layout: { "text-field": "x", "text-font": ["Noto Sans Regular"] }
+          }
+        ]
+      })
+    );
+    return stylePath;
+  }
+
+  /**
+   * Binds and immediately releases a port so connecting to it is refused at
+   * once. Depending on a hostname failing to resolve makes the result
+   * environmental: a resolver that hijacks NXDOMAIN answers the lookup, and the
+   * check then reports "not reachable" instead of "could not be checked".
+   */
+  async function closedPort(): Promise<number> {
+    const probe = createServer();
+    await new Promise<void>((listening) => probe.listen(0, "127.0.0.1", listening));
+    const { port } = probe.address() as AddressInfo;
+    await new Promise<void>((closed, failed) =>
+      probe.close((error) => (error ? failed(error) : closed()))
+    );
+    return port;
+  }
+
+  beforeAll(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "maptiles-doctor-glyphs-"));
+  });
+
+  afterAll(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  it("reports a remote glyph endpoint as incomplete when the network is disabled", async () => {
+    const report = await checkStyleContract({
+      stylePath: await styleWithGlyphs("https://glyphs.invalid.test/{fontstack}/{range}.pbf"),
+      allowNetwork: false
+    });
+
+    expect(report.incompleteChecks.find((check) => check.id === "glyph.network-disabled")).
+      toMatchObject({ category: "glyph" });
+    expect(report.findings.filter((finding) => finding.category === "glyph")).toEqual([]);
+    expect(report.status).toBe("incomplete");
+  });
+
+  it("reports an unreachable glyph endpoint as incomplete rather than as a finding", async () => {
+    const port = await closedPort();
+    const report = await checkStyleContract({
+      stylePath: await styleWithGlyphs(`http://127.0.0.1:${port}/{fontstack}/{range}.pbf`),
+      // The style's source is remote only so the symbol layer is spec-valid.
+      // Sampling it would chase three tiles over DNS and make this test's
+      // duration depend on the resolver rather than on the glyph endpoint.
+      sampleTiles: false,
+      timeoutMs: 2_000
+    });
+
+    expect(
+      report.incompleteChecks.find(
+        (check) => check.id === "glyph.Noto Sans Regular.check-failed"
+      )
+    ).toMatchObject({ category: "glyph" });
+    // The endpoint answered nothing, so nothing was proved about the font: an
+    // unreachable artifact must never become a finding.
+    expect(report.findings.filter((finding) => finding.category === "glyph")).toEqual([]);
+  });
+});
+
+// The `sprite` key is either a string or an array of `{id, url}` entries. A
+// malformed entry must be skipped rather than turned into a request for
+// `undefined.json`, which would read as an unreachable sprite.
+describe("sprite declarations", () => {
+  let workDir: string;
+
+  async function styleWithSprite(sprite: unknown): Promise<string> {
+    const stylePath = join(workDir, `sprite-${(spriteCounter += 1)}.json`);
+    await writeFile(
+      stylePath,
+      JSON.stringify({
+        version: 8,
+        sprite,
+        sources: {},
+        layers: [{ id: "poi", type: "symbol", layout: { "icon-image": "marker" } }]
+      })
+    );
+    return stylePath;
+  }
+
+  let spriteCounter = 0;
+
+  beforeAll(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "maptiles-doctor-sprite-"));
+  });
+
+  afterAll(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    ["a number", 7],
+    ["an object", { url: "./sprite" }],
+    ["an array of entries without urls", [{ id: "a" }, "bare", 3]]
+  ])("emits no sprite check for %s", async (_label, sprite) => {
+    const report = await checkStyleContract({ stylePath: await styleWithSprite(sprite) });
+
+    expect(report.incompleteChecks.filter((check) => check.category === "sprite")).toEqual([]);
+    expect(report.findings.filter((finding) => finding.category === "icon")).toEqual([]);
+  });
+
+  it("reads an array entry that declares a url but no id as the unnamed sprite", async () => {
+    const report = await checkStyleContract({
+      // Absolute, because the style is written to a temp directory rather than
+      // alongside the fixture sprite.
+      stylePath: await styleWithSprite([{ url: resolve(root, "fixtures/simple-style/sprite") }])
+    });
+
+    // `marker` is in that sprite, so a url-only entry has to have been read.
+    expect(report.findings.filter((finding) => finding.category === "icon")).toEqual([]);
+    expect(report.incompleteChecks.filter((check) => check.category === "sprite")).toEqual([]);
   });
 });

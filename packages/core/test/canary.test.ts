@@ -121,6 +121,93 @@ describe("rewriteStyleForBrowser", () => {
     expect(droppedLayers).toEqual(["c"]);
   });
 
+  // A source with nothing to request cannot be rendered, and reporting it is
+  // the difference between a known gap and a silently empty map.
+  it("drops a TileJSON source that declares no tile template", () => {
+    const result = rewriteStyleForBrowser(
+      {
+        version: 8,
+        sources: { empty: { type: "vector", url: "./tilejson.json" } },
+        layers: [{ id: "a", type: "circle", source: "empty", "source-layer": "poi" }]
+      } as unknown as StyleSpecification,
+      "/style",
+      new Map([
+        ["empty", contract({ id: "empty", kind: "tilejson", location: "/data/t.json", tileUrls: [] })]
+      ])
+    );
+
+    expect(result.unrenderableSources).toEqual([
+      { id: "empty", reason: "the source declares no tile URL template" }
+    ]);
+    expect(result.droppedLayers).toEqual(["a"]);
+    expect(result.browserStyle.layers).toEqual([]);
+  });
+
+  // The array form of `sprite` is what a multi-sprite production style uses, and
+  // MapLibre resolves each entry's url against the document rather than the
+  // style file, so every one of them has to be absolutized.
+  it("absolutizes every entry of an array sprite declaration", () => {
+    const result = rewriteStyleForBrowser(
+      {
+        version: 8,
+        sprite: [
+          { id: "basics", url: "./sprite" },
+          { id: "extra", url: "../shared/extra" },
+          "not an entry"
+        ],
+        sources: {},
+        layers: []
+      } as unknown as StyleSpecification,
+      "/style",
+      new Map()
+    );
+
+    expect(result.browserStyle.sprite).toEqual([
+      { id: "basics", url: "http://maptiles-doctor.localhost/style/sprite" },
+      { id: "extra", url: "http://maptiles-doctor.localhost/shared/extra" },
+      // Left exactly as it was rather than coerced into a broken url.
+      "not an entry"
+    ]);
+  });
+
+  it("leaves a remote sprite entry pointing at the real endpoint", () => {
+    const result = rewriteStyleForBrowser(
+      {
+        version: 8,
+        sprite: [{ id: "cdn", url: "https://cdn.example/sprite" }],
+        sources: {},
+        layers: []
+      } as unknown as StyleSpecification,
+      "/style",
+      new Map()
+    );
+
+    expect(result.browserStyle.sprite).toEqual([
+      { id: "cdn", url: "https://cdn.example/sprite" }
+    ]);
+  });
+
+  it("absolutizes the tile templates of a source with no contract", () => {
+    const result = rewriteStyleForBrowser(
+      {
+        version: 8,
+        sources: {
+          inline: { type: "vector", tiles: ["./tiles/{z}/{x}/{y}.pbf", 7] }
+        },
+        layers: []
+      } as unknown as StyleSpecification,
+      "/style",
+      new Map()
+    );
+
+    const sources = result.browserStyle.sources as Record<string, Record<string, unknown>>;
+    expect(sources.inline?.tiles).toEqual([
+      // The placeholders have to survive, and a non-string entry is left alone.
+      "http://maptiles-doctor.localhost/style/tiles/{z}/{x}/{y}.pbf",
+      7
+    ]);
+  });
+
   it("resolves sprite and glyph templates against the style directory", () => {
     expect(browserStyle.sprite).toBe("http://maptiles-doctor.localhost/style/sprite");
     expect(browserStyle.glyphs).toBe(

@@ -121,6 +121,71 @@ describe("locateFinding", () => {
       })
     ).toBeUndefined();
   });
+
+  // A report outlives the edit that invalidates it: the extension can hold a
+  // finding about a layer the buffer no longer contains. Anchoring has to
+  // degrade rather than throw or mark an unrelated node.
+  describe("when the style has moved on from the finding", () => {
+    /** Locates against inline text rather than a fixture on disk. */
+    function locatedIn(text: string, finding: Partial<Finding>): string | undefined {
+      const span = locateFinding(indexStyle(text), {
+        id: "test",
+        severity: "broken",
+        category: "source-layer",
+        message: "test",
+        ...finding
+      });
+      return span ? text.slice(span.offset, span.offset + span.length) : undefined;
+    }
+
+    const style = JSON.stringify(
+      {
+        version: 8,
+        sources: { basemap: { type: "vector", url: "./t.json" } },
+        layers: [
+          {
+            id: "roads",
+            type: "line",
+            source: "basemap",
+            "source-layer": "road",
+            filter: ["==", ["get", "class"], "motorway"]
+          },
+          { id: "bare", type: "background" }
+        ]
+      },
+      null,
+      2
+    );
+
+    it("gives up on a layer the document no longer has", () => {
+      expect(locatedIn(style, { category: "source-layer", layerId: "deleted" })).toBeUndefined();
+    });
+
+    it("anchors on the layer's own id when the named property is absent", () => {
+      // The layer exists but declares no source-layer, so the id beats line 1.
+      expect(locatedIn(style, { category: "source-layer", layerId: "bare" })).toBe('"id": "bare"');
+    });
+
+    it("prefers the filter over paint and layout for a property finding", () => {
+      expect(
+        locatedIn(style, { category: "expression-property", layerId: "roads", property: "class" })
+      ).toBe('"filter"');
+    });
+
+    it("ignores a style-spec path that is not a property path", () => {
+      expect(locatedIn(style, { category: "style-spec", path: "layers[0" })).toBeUndefined();
+    });
+
+    it("follows a style-spec path through several array indices", () => {
+      expect(locatedIn(style, { category: "style-spec", path: "layers[0].filter[1][1]" })).toBe(
+        '"class"'
+      );
+    });
+
+    it("ignores an empty style-spec path", () => {
+      expect(locatedIn(style, { category: "style-spec", path: "" })).toBeUndefined();
+    });
+  });
 });
 
 describe("locateIncompleteCheck", () => {

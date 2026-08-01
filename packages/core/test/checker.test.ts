@@ -825,3 +825,67 @@ describe("an air-gapped run against a remote style", () => {
     expect(report.status).not.toBe("passed");
   });
 });
+
+// A tile that answered with an error is not the same as a tile that is absent.
+// The first means the sample could not be taken and every check resting on it
+// is unproven; the second is ordinary for a sparse tileset. Collapsing them
+// would let a broken tile server read as a clean run.
+describe("a source whose tiles cannot be read", () => {
+  let origin = "";
+
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === "/tiles.json") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          tilejson: "3.0.0",
+          minzoom: 0,
+          maxzoom: 2,
+          tiles: [`${origin}/{z}/{x}/{y}.pbf`],
+          vector_layers: [{ id: "poi", fields: { name: "String" }, minzoom: 0, maxzoom: 2 }]
+        })
+      );
+      return;
+    }
+    // Every tile answers with a server error rather than a 404.
+    response.writeHead(500).end();
+  });
+
+  beforeAll(async () => {
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((done) => server.close(() => done()));
+  });
+
+  it("reports the failure as incomplete rather than passing the run", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("simple-style"),
+      sources: [{ id: "openmaptiles", location: `${origin}/tiles.json` }],
+      timeoutMs: 5_000
+    });
+
+    expect(
+      report.incompleteChecks.find((check) => check.id === "source.openmaptiles.tile-sample-failed")
+    ).toMatchObject({ category: "tile-availability", sourceId: "openmaptiles" });
+    expect(report.status).not.toBe("passed");
+    expect(report.checks.find((check) => check.id === "tile-sample")?.status).toBe("incomplete");
+  });
+
+  it("does not claim a source-layer is absent on the strength of a failed sample", async () => {
+    const report = await checkStyleContract({
+      stylePath: fixture("simple-style"),
+      sources: [{ id: "openmaptiles", location: `${origin}/tiles.json` }],
+      timeoutMs: 5_000
+    });
+
+    // The metadata declares poi and buildings; nothing was sampled to contradict
+    // it, so absence must not be inferred.
+    expect(
+      report.findings.filter((finding) => finding.id.includes("source-layer-not-sampled"))
+    ).toEqual([]);
+  });
+});

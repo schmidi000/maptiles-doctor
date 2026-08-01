@@ -1,0 +1,31 @@
+{
+  "version": 8,
+  "name": "Unresolvable icon-image fixture style",
+  "sprite": "../simple-style/sprite",
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "../simple-style/tilejson.json"
+    }
+  },
+  "layers": [
+    {
+      "id": "poi-unmodellable",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": ["concat", "icon-", ["to-string", ["*", 2, 3]]]
+      }
+    },
+    {
+      "id": "poi-known",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "layout": {
+        "icon-image": "marker"
+      }
+    }
+  ]
+}

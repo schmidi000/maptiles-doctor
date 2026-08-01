@@ -1,7 +1,8 @@
 import { createServer, type Server } from "node:http";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openPmtiles, readSourceContract } from "../src/source-reader.js";
 
@@ -231,4 +232,111 @@ describe("PMTiles timeouts", () => {
       readSourceContract("basemap", `${origin}/basemap.pmtiles`, 300)
     ).rejects.toThrow();
   }, 10_000);
+});
+
+// TileJSON in the wild is not well typed: zoom levels and bounds arrive as
+// strings, `fields` values are free text, and entries can be malformed. What
+// this parser decides silently becomes the contract every later check is
+// measured against.
+describe("metadata parsing", () => {
+  let dir = "";
+  let counter = 0;
+
+  async function contractFor(tileJson: unknown) {
+    const path = join(dir, `tilejson-${(counter += 1)}.json`);
+    await writeFile(path, JSON.stringify(tileJson));
+    return readSourceContract("basemap", path, 5_000);
+  }
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "maptiles-doctor-meta-"));
+  });
+
+  it("accepts zoom levels written as strings", async () => {
+    const contract = await contractFor({ tilejson: "3.0.0", minzoom: "2", maxzoom: "14" });
+
+    expect(contract).toMatchObject({ minzoom: 2, maxzoom: 14 });
+  });
+
+  it.each([
+    ["not a number", { minzoom: "deep" }],
+    ["an empty string", { minzoom: "" }],
+    ["a blank string", { minzoom: "   " }],
+    ["null", { minzoom: null }],
+    ["NaN", { minzoom: Number.NaN }]
+  ])("leaves a zoom undefined when it is %s", async (_label, overrides) => {
+    const contract = await contractFor({ tilejson: "3.0.0", ...overrides });
+
+    expect(contract.minzoom).toBeUndefined();
+  });
+
+  it("accepts bounds as an array or a comma-separated string", async () => {
+    const fromArray = await contractFor({ tilejson: "3.0.0", bounds: [-1, -2, 3, 4] });
+    const fromString = await contractFor({ tilejson: "3.0.0", bounds: "-1,-2,3,4" });
+
+    expect(fromArray.bounds).toEqual([-1, -2, 3, 4]);
+    expect(fromString.bounds).toEqual([-1, -2, 3, 4]);
+  });
+
+  it.each([
+    ["too few values", [1, 2, 3]],
+    ["too many values", [1, 2, 3, 4, 5]],
+    ["a non-numeric value", [1, 2, 3, "east"]],
+    ["a short string", "1,2,3"],
+    ["nonsense", "everywhere"]
+  ])("leaves bounds undefined for %s", async (_label, bounds) => {
+    const contract = await contractFor({ tilejson: "3.0.0", bounds });
+
+    expect(contract.bounds).toBeUndefined();
+  });
+
+  // A layer with no id cannot be matched against a style's `source-layer`, so
+  // keeping it would put an unusable entry into the contract.
+  it("skips vector layer entries that carry no id", async () => {
+    const contract = await contractFor({
+      tilejson: "3.0.0",
+      vector_layers: [{ id: "poi" }, { minzoom: 0 }, "not an object", null, { id: 7 }]
+    });
+
+    expect(contract.vectorLayers.map((layer) => layer.id)).toEqual(["poi"]);
+  });
+
+  it("keeps a field declared with an empty description", async () => {
+    const contract = await contractFor({
+      tilejson: "3.0.0",
+      vector_layers: [{ id: "poi", fields: { name: "", class: "String" } }]
+    });
+
+    expect(contract.vectorLayers[0]?.fields).toEqual({ name: "", class: "String" });
+  });
+
+  it("stringifies non-string field descriptions rather than dropping the field", async () => {
+    const contract = await contractFor({
+      tilejson: "3.0.0",
+      vector_layers: [{ id: "poi", fields: { rank: 1, visible: true } }]
+    });
+
+    expect(contract.vectorLayers[0]?.fields).toEqual({ rank: "1", visible: "true" });
+  });
+
+  it("leaves fields undefined when the layer declares none", async () => {
+    const contract = await contractFor({ tilejson: "3.0.0", vector_layers: [{ id: "poi" }] });
+
+    expect(contract.vectorLayers[0]?.fields).toBeUndefined();
+  });
+
+  it("keeps only string tile templates", async () => {
+    const contract = await contractFor({
+      tilejson: "3.0.0",
+      tiles: ["https://host/{z}/{x}/{y}.pbf", 7, null]
+    });
+
+    expect(contract.tileUrls).toEqual(["https://host/{z}/{x}/{y}.pbf"]);
+  });
+
+  it("treats a missing vector_layers list as no layers rather than an error", async () => {
+    const contract = await contractFor({ tilejson: "3.0.0", vector_layers: "later" });
+
+    expect(contract.vectorLayers).toEqual([]);
+  });
 });

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -19,6 +19,16 @@ function captureStdout() {
     return true;
   });
   return { chunks, restore: () => spy.mockRestore() };
+}
+
+/** Commander writes option errors to stderr; silence it and keep the text. */
+function captureStderr() {
+  const chunks: string[] = [];
+  const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    chunks.push(String(chunk));
+    return true;
+  });
+  return { text: () => chunks.join(""), restore: () => spy.mockRestore() };
 }
 
 async function check(args: string[]): Promise<{ code: number; stdout: string }> {
@@ -333,6 +343,144 @@ describe("CLI", () => {
     expect(report.summary.broken).toBeGreaterThan(0);
     expect(report.status).toBe("failed");
     expect(code).toBe(1);
+  });
+
+  // A sample that did not contain something is not proof that it is missing, so
+  // no flag may turn absence into a build failure on its own. The rejection is
+  // deliberate and carries its own message.
+  it("refuses to let sampled absence be raised to broken", async () => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--sampled-absence", "broken"]);
+      expect(code).toBe(2);
+      expect(stderr.text()).toContain("cannot prove a break");
+    } finally {
+      stderr.restore();
+    }
+  });
+
+  it.each(["info", "warning", "risky"])("accepts %s as a sampled-absence severity", async (value) => {
+    const { code } = await check([
+      passingStyle,
+      "--source",
+      `openmaptiles=${tilejson}`,
+      "--sampled-absence",
+      value
+    ]);
+
+    expect(code).toBe(0);
+  });
+
+  it.each([
+    ["200,0", "a longitude beyond 180"],
+    ["0,100", "a latitude beyond 90"],
+    ["0", "a single number"],
+    ["0,0,0", "three numbers"],
+    ["north,south", "words"]
+  ])("rejects %s as --sample-at (%s)", async (value) => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--sample-at", value]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
+    }
+  });
+
+  it("accepts a sample location on the boundary", async () => {
+    const { code } = await check([
+      passingStyle,
+      "--source",
+      `openmaptiles=${tilejson}`,
+      "--sample-at",
+      "-180,-90"
+    ]);
+
+    expect(code).toBe(0);
+  });
+
+  it.each(["0", "-1", "1.5", "many"])(
+    "rejects %s as a tile count",
+    async (value) => {
+      const stderr = captureStderr();
+      try {
+        const { code } = await check([passingStyle, "--max-sample-tiles", value]);
+        expect(code).toBe(2);
+      } finally {
+        stderr.restore();
+      }
+    }
+  );
+
+  it.each(["-0.1", "1.1", "half"])("rejects %s as a diff ratio", async (value) => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--max-diff-ratio", value]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
+    }
+  });
+
+  it.each([
+    ["id-only", "no separator"],
+    ["=/tmp/x", "no id"],
+    ["id=", "no location"]
+  ])("rejects %s as a --source override (%s)", async (value) => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--source", value]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
+    }
+  });
+
+  it("keeps a location containing an equals sign intact", async () => {
+    // Only the first `=` separates the id, so a signed URL survives.
+    const { code, stdout } = await check([
+      passingStyle,
+      "--source",
+      "ghost=https://tiles.invalid.test/a.json?token=a=b",
+      "--offline",
+      "--format",
+      "json"
+    ]);
+
+    const report = JSON.parse(stdout);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        id: "source.ghost.unused",
+        path: "https://tiles.invalid.test/a.json?token=a=b"
+      })
+    );
+    expect(code).toBe(0);
+  });
+
+  it("rejects a canary file that is not an array", async () => {
+    const canaryFile = join(workDir, "canaries.json");
+    await writeFile(canaryFile, JSON.stringify({ id: "one" }));
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--canaries", canaryFile]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
+    }
+  });
+
+  it.each([
+    ["0,0", "only two numbers"],
+    ["0,0,2,extra,more", "too many parts"],
+    ["a,b,c", "words"]
+  ])("rejects %s as a --canary (%s)", async (value) => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--canary", value]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
+    }
   });
 
   it("annotates info findings as notices, not warnings, for GitHub", async () => {
