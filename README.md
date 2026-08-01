@@ -7,9 +7,14 @@ The target failure mode is simple: a style can be valid JSON and still ship a
 broken map because `source-layer`, zoom, glyph, sprite, icon, or data-property
 assumptions do not match the tileset.
 
-**Documentation: <https://schmidi000.github.io/maptiles-doctor/>** — the single
-source of truth for how the checker behaves. It lives in `site/` and deploys from
-`main`. This README is a summary; where the two disagree, the site wins.
+**Documentation: open `site/index.html` in a browser.** It is the single source
+of truth for how the checker behaves, and this README is a summary; where the two
+disagree, the site wins.
+
+The site is not published. It is a single self-contained HTML file with no build
+step, so reading it needs nothing but a browser. `.github/workflows/pages.yml`
+can deploy it to GitHub Pages, but it is manual-only and deliberately not
+enabled: a Pages site is world-readable, and this repository is private.
 
 ## Status
 

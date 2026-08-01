@@ -3,12 +3,13 @@ name: Documentation
 # The site in `site/` is the single source of truth for how MapTiles Doctor
 # behaves. It is plain HTML with no build step, so a deploy cannot break on a
 # generator upgrade.
+#
+# Deliberately manual. This repository is private and the documentation is not
+# meant to be public yet, and a GitHub Pages site is world-readable except on
+# Enterprise Cloud with access control. There is no push trigger, so enabling
+# Pages later cannot start publishing on its own: someone has to run this
+# workflow on purpose. Open `site/index.html` in a browser to read it locally.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "site/**"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
