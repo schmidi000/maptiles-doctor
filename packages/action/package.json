@@ -1,6 +1,6 @@
 {
   "name": "@maptiles-doctor/action",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GitHub Action wrapper for MapTiles Doctor.",
   "keywords": [
     "github-action",
@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@actions/core": "3.0.1",
-    "@maptiles-doctor/core": "0.1.0",
-    "@maptiles-doctor/report": "0.1.0"
+    "@maptiles-doctor/core": "0.1.1",
+    "@maptiles-doctor/report": "0.1.1"
   }
 }

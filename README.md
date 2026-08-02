@@ -230,7 +230,7 @@ A check that never ran produces no entry at all, rather than one that passed.
 ## GitHub Action
 
 ```yaml
-- uses: schmidi000/maptiles-doctor/packages/action@v0.1.0
+- uses: schmidi000/maptiles-doctor/packages/action@v0.1.1
   with:
     style: style.json
     sources: |

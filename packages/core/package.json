@@ -1,6 +1,6 @@
 {
   "name": "@maptiles-doctor/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Contract-checking engine behind MapTiles Doctor: reads a MapLibre/Mapbox style and the tile, glyph and sprite artifacts it depends on, and reports where they disagree.",
   "keywords": [
     "maplibre",

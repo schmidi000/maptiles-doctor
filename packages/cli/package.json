@@ -1,6 +1,6 @@
 {
   "name": "maptiles-doctor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI that validates a MapLibre/Mapbox style against the PMTiles, MBTiles, TileJSON, sprite, glyph and vector-tile artifacts it ships against.",
   "keywords": [
     "maplibre",
@@ -36,7 +36,7 @@
     "access": "public"
   },
   "bin": {
-    "maptiles-doctor": "./dist/index.js"
+    "maptiles-doctor": "dist/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -57,8 +57,8 @@
     "test": "vitest run packages/cli/test"
   },
   "dependencies": {
-    "@maptiles-doctor/core": "0.1.0",
-    "@maptiles-doctor/report": "0.1.0",
+    "@maptiles-doctor/core": "0.1.1",
+    "@maptiles-doctor/report": "0.1.1",
     "chalk": "6.0.0",
     "commander": "15.0.0",
     "zod": "4.4.3"

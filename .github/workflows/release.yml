@@ -120,6 +120,48 @@ jobs:
             npm publish --workspace "$package" --provenance --access public
           done
 
+      # `npm publish` reporting success is not the same as the package being
+      # installable. The first release published all four packages, each with a
+      # signed provenance statement, and three of them were still 404 on the
+      # registry minutes later — leaving a CLI on npm that pinned siblings
+      # nobody could fetch. Install the published set the way a user would,
+      # from a directory with none of this repository in it, and fail the
+      # release before it is tagged if that does not work.
+      - name: Verify the published packages install
+        if: ${{ !inputs.dry-run }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          work="$(mktemp -d)"
+          cd "$work"
+          npm init -y >/dev/null
+          for attempt in 1 2 3 4 5 6; do
+            if npm install --no-audit --no-fund \
+              "maptiles-doctor@${VERSION}" \
+              "@maptiles-doctor/core@${VERSION}" \
+              "@maptiles-doctor/report@${VERSION}" \
+              "@maptiles-doctor/action@${VERSION}"; then
+              break
+            fi
+            if [ "$attempt" = 6 ]; then
+              echo "::error::Published ${VERSION} is not installable from the registry." >&2
+              exit 1
+            fi
+            echo "Not on the registry yet; retrying in 30s (attempt ${attempt}/6)."
+            sleep 30
+          done
+
+          # Assert on the output, not the exit status. 0.1.0 shipped a CLI whose
+          # entrypoint check compared `import.meta.url` against `argv[1]`, which
+          # never matches when npm installs the bin as a symlink: it printed
+          # nothing and exited 0 on every invocation. An exit-status check would
+          # have called that a successful release.
+          printed="$(./node_modules/.bin/maptiles-doctor --version)"
+          if [ "$printed" != "$VERSION" ]; then
+            echo "::error::Installed CLI printed '${printed}' for --version, expected ${VERSION}." >&2
+            exit 1
+          fi
+
       # Tagged after the publish, not before: a tag pointing at a version that
       # never reached the registry is worse than no tag. Consumers of the Action
       # pin `@v0`, so the major tag moves onto the released commit too, and the

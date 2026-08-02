@@ -3,8 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { symlink } from "node:fs/promises";
 import { PassThrough } from "node:stream";
-import { guardBrokenPipe, run } from "../src/index.js";
+import { pathToFileURL } from "node:url";
+import { guardBrokenPipe, isEntrypoint, run } from "../src/index.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 const brokenStyle = resolve(root, "fixtures/broken-style/style.json");
@@ -493,6 +495,39 @@ describe("CLI", () => {
 
     expect(stdout).toContain("::notice title=expression-property::");
     expect(stdout).not.toContain("::warning title=expression-property::");
+  });
+
+  // npm installs a `bin` as a symlink, so the entrypoint check runs against a
+  // path that is not the module's own. Getting this wrong published a CLI that
+  // printed nothing and exited 0 on every invocation, while every test here and
+  // every run from a checkout passed: neither goes through a symlink.
+  describe("entrypoint detection", () => {
+    it("recognizes the module when it was invoked through a symlink", async () => {
+      const real = join(workDir, "entrypoint-real.js");
+      const link = join(workDir, "entrypoint-link");
+      await writeFile(real, "// stands in for dist/index.js\n");
+      await symlink(real, link);
+
+      expect(isEntrypoint(link, pathToFileURL(real).href)).toBe(true);
+    });
+
+    it("recognizes the module when it was invoked directly", async () => {
+      const real = join(workDir, "entrypoint-direct.js");
+      await writeFile(real, "// stands in for dist/index.js\n");
+
+      expect(isEntrypoint(real, pathToFileURL(real).href)).toBe(true);
+    });
+
+    it("does not claim an unrelated entry, a missing one, or none at all", async () => {
+      const real = join(workDir, "entrypoint-self.js");
+      const other = join(workDir, "entrypoint-other.js");
+      await writeFile(real, "");
+      await writeFile(other, "");
+
+      expect(isEntrypoint(other, pathToFileURL(real).href)).toBe(false);
+      expect(isEntrypoint(join(workDir, "gone.js"), pathToFileURL(real).href)).toBe(false);
+      expect(isEntrypoint(undefined, pathToFileURL(real).href)).toBe(false);
+    });
   });
 
   // `--format json | head` used to end in an unhandled 'error' event and a

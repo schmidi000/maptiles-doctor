@@ -1,6 +1,6 @@
 {
   "name": "@maptiles-doctor/report",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Static HTML and SARIF renderers for MapTiles Doctor reports.",
   "keywords": [
     "maplibre",
@@ -46,6 +46,6 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@maptiles-doctor/core": "0.1.0"
+    "@maptiles-doctor/core": "0.1.1"
   }
 }

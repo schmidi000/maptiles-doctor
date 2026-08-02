@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import { Command, CommanderError, InvalidArgumentError } from "commander";
 import {
   checkStyleContract,
@@ -338,7 +340,30 @@ export function guardBrokenPipe(
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * Whether this module is what the user actually invoked.
+ *
+ * Comparing `import.meta.url` to `file://${process.argv[1]}` is the usual
+ * idiom and it is wrong for anything with a `bin`. npm installs a binary as a
+ * symlink — `node_modules/.bin/maptiles-doctor` pointing at
+ * `node_modules/maptiles-doctor/dist/index.js` — so `argv[1]` is the link while
+ * `import.meta.url` is the file it resolves to. The strings never match, the
+ * branch never runs, and the published CLI prints nothing and exits 0 on every
+ * invocation while working perfectly from a checkout. Compare resolved paths.
+ */
+export function isEntrypoint(entry: string | undefined, moduleUrl: string): boolean {
+  if (!entry) {
+    return false;
+  }
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    // A deleted or unreadable entry is not this module.
+    return false;
+  }
+}
+
+if (isEntrypoint(process.argv[1], import.meta.url)) {
   guardBrokenPipe();
   process.exitCode = await run(process.argv);
 }

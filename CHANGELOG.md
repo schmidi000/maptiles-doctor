@@ -10,7 +10,32 @@ Report schema v1 is a consumer contract and is exempt: it will not break within
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-08-02
+
+Fixes a release that could not be used. **Do not install 0.1.0.**
+
+### Fixed
+
+- The installed `maptiles-doctor` binary did nothing: it printed no output and
+  exited 0 on every invocation. The entrypoint check compared
+  `import.meta.url` against `process.argv[1]`, which never match when npm
+  installs a `bin` as a symlink — `node_modules/.bin/maptiles-doctor` pointing
+  at `node_modules/maptiles-doctor/dist/index.js`. Resolved paths are compared
+  now. Nothing caught it because neither the tests nor a run from a checkout
+  goes through a symlink.
+- `bin` no longer uses a `./` prefix, which npm rewrote on publish with a
+  warning.
+
+### Changed
+
+- The release workflow installs the published packages from the registry in a
+  clean directory and asserts that `--version` prints the released version,
+  before it tags anything. An exit status alone would have called 0.1.0 a
+  successful release.
+
 ## [0.1.0] — 2026-08-02
+
+Withdrawn: the CLI binary is inert once installed. Use 0.1.1.
 
 First public release.
 
@@ -53,5 +78,6 @@ First public release.
   four independent providers across three tile schemas, and a seeded-failure
   harness that measures detection against an unmutated baseline.
 
-[Unreleased]: https://github.com/schmidi000/maptiles-doctor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/schmidi000/maptiles-doctor/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/schmidi000/maptiles-doctor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/schmidi000/maptiles-doctor/releases/tag/v0.1.0
