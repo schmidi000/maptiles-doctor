@@ -3,7 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { run } from "../src/index.js";
+import { PassThrough } from "node:stream";
+import { guardBrokenPipe, run } from "../src/index.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 const brokenStyle = resolve(root, "fixtures/broken-style/style.json");
@@ -359,17 +360,20 @@ describe("CLI", () => {
     }
   });
 
-  it.each(["info", "warning", "risky"])("accepts %s as a sampled-absence severity", async (value) => {
-    const { code } = await check([
-      passingStyle,
-      "--source",
-      `openmaptiles=${tilejson}`,
-      "--sampled-absence",
-      value
-    ]);
+  it.each(["info", "warning", "risky"])(
+    "accepts %s as a sampled-absence severity",
+    async (value) => {
+      const { code } = await check([
+        passingStyle,
+        "--source",
+        `openmaptiles=${tilejson}`,
+        "--sampled-absence",
+        value
+      ]);
 
-    expect(code).toBe(0);
-  });
+      expect(code).toBe(0);
+    }
+  );
 
   it.each([
     ["200,0", "a longitude beyond 180"],
@@ -399,18 +403,15 @@ describe("CLI", () => {
     expect(code).toBe(0);
   });
 
-  it.each(["0", "-1", "1.5", "many"])(
-    "rejects %s as a tile count",
-    async (value) => {
-      const stderr = captureStderr();
-      try {
-        const { code } = await check([passingStyle, "--max-sample-tiles", value]);
-        expect(code).toBe(2);
-      } finally {
-        stderr.restore();
-      }
+  it.each(["0", "-1", "1.5", "many"])("rejects %s as a tile count", async (value) => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--max-sample-tiles", value]);
+      expect(code).toBe(2);
+    } finally {
+      stderr.restore();
     }
-  );
+  });
 
   it.each(["-0.1", "1.1", "half"])("rejects %s as a diff ratio", async (value) => {
     const stderr = captureStderr();
@@ -492,5 +493,33 @@ describe("CLI", () => {
 
     expect(stdout).toContain("::notice title=expression-property::");
     expect(stdout).not.toContain("::warning title=expression-property::");
+  });
+
+  // `--format json | head` used to end in an unhandled 'error' event and a
+  // stack trace, on a run that had already produced its report correctly.
+  describe("broken pipe", () => {
+    it("exits 0 when the reader closes stdout", () => {
+      const stream = new PassThrough();
+      const exit = vi.fn() as unknown as (code: number) => never;
+      guardBrokenPipe(stream, exit);
+
+      const epipe: NodeJS.ErrnoException = new Error("write EPIPE");
+      epipe.code = "EPIPE";
+      stream.emit("error", epipe);
+
+      expect(exit).toHaveBeenCalledWith(0);
+    });
+
+    it("still raises every other stdout error", () => {
+      const stream = new PassThrough();
+      const exit = vi.fn() as unknown as (code: number) => never;
+      guardBrokenPipe(stream, exit);
+
+      const other: NodeJS.ErrnoException = new Error("no space left on device");
+      other.code = "ENOSPC";
+
+      expect(() => stream.emit("error", other)).toThrow("no space left on device");
+      expect(exit).not.toHaveBeenCalled();
+    });
   });
 });
