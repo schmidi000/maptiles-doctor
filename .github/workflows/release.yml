@@ -111,12 +111,22 @@ jobs:
       # same OIDC token the provenance attestation already uses. It cannot be set
       # up before the first publish, because the configuration lives on a package
       # that does not exist yet. See RELEASING.md.
+      # Skipping what is already on the registry makes the whole workflow
+      # resumable. A version can only be published once, so without this a run
+      # that published everything and then failed on a later step — as 0.1.1
+      # did, on a verification timeout — could never be re-run to finish the
+      # job, and the tag and release had to be created by hand.
       - name: Publish to npm
         if: ${{ !inputs.dry-run }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           for package in @maptiles-doctor/core @maptiles-doctor/report maptiles-doctor @maptiles-doctor/action; do
+            if [ -n "$(npm view "${package}@${VERSION}" version 2>/dev/null || true)" ]; then
+              echo "${package}@${VERSION} is already published; skipping."
+              continue
+            fi
             npm publish --workspace "$package" --provenance --access public
           done
 
@@ -127,6 +137,13 @@ jobs:
       # nobody could fetch. Install the published set the way a user would,
       # from a directory with none of this repository in it, and fail the
       # release before it is tagged if that does not work.
+      #
+      # Ten minutes of patience, not three: 0.1.1 was published, failed this
+      # step, and was installable by hand a few minutes later. A window shorter
+      # than the registry takes to settle turns a good release into a red run
+      # with no tag. `--prefer-online` matters as much as the retries — npm
+      # caches a 404, so a retry can otherwise keep answering from the cache
+      # long after the registry has caught up.
       - name: Verify the published packages install
         if: ${{ !inputs.dry-run }}
         env:
@@ -135,19 +152,21 @@ jobs:
           work="$(mktemp -d)"
           cd "$work"
           npm init -y >/dev/null
-          for attempt in 1 2 3 4 5 6; do
-            if npm install --no-audit --no-fund \
+          attempts=20
+          for attempt in $(seq 1 "$attempts"); do
+            if npm install --no-audit --no-fund --prefer-online \
               "maptiles-doctor@${VERSION}" \
               "@maptiles-doctor/core@${VERSION}" \
               "@maptiles-doctor/report@${VERSION}" \
               "@maptiles-doctor/action@${VERSION}"; then
               break
             fi
-            if [ "$attempt" = 6 ]; then
+            if [ "$attempt" = "$attempts" ]; then
               echo "::error::Published ${VERSION} is not installable from the registry." >&2
+              echo "The packages are published. Re-run this workflow once the registry has caught up: publishing is skipped for versions that already exist, so it will resume at this step." >&2
               exit 1
             fi
-            echo "Not on the registry yet; retrying in 30s (attempt ${attempt}/6)."
+            echo "Not on the registry yet; retrying in 30s (attempt ${attempt}/${attempts})."
             sleep 30
           done
 

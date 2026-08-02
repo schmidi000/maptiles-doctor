@@ -37,6 +37,20 @@ The dry run is worth the extra click. A version can only be published once — n
 never lets a version number be reused — so the cheapest place to find a problem
 is before the publish step, not after.
 
+## If a release fails after publishing
+
+Re-run the workflow. Publishing skips any package already on the registry at
+that version, so the run resumes at whatever step failed and finishes the tag
+and the GitHub release.
+
+The step most likely to fail this way is the install verification. A newly
+published package can 404 for several minutes while the registry settles, and
+the workflow refuses to tag a version it could not install. That is deliberate —
+0.1.0 shipped a CLI that was inert once installed, and an unverified tag would
+have made it look like a good release — but it does mean a slow registry shows
+up as a red run on a release that was fine. Give it a few minutes and run it
+again.
+
 Pushing a `vX.Y.Z` tag by hand triggers the same workflow, if you would rather
 tag locally:
 
