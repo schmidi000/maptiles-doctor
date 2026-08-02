@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://maptiles-doctor.com/
+    about: The full reference, and the single source of truth for how the checker behaves.
+  - name: Questions and ideas
+    url: https://github.com/schmidi000/maptiles-doctor/discussions
+    about: Ask how to check something, or float an idea before opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/schmidi000/maptiles-doctor/security/advisories/new
+    about: Please report vulnerabilities privately, never as a public issue.

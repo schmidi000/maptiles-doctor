@@ -189,7 +189,9 @@ describe("runAction", () => {
 
     // The only finding is a `warning`, so reporting the `broken` count here
     // announced "found 0 issue(s)" on a job it had just failed.
-    expect(calls.failed).toEqual(["MapTiles Doctor found 1 contract issue(s) at or above warning."]);
+    expect(calls.failed).toEqual([
+      "MapTiles Doctor found 1 contract issue(s) at or above warning."
+    ]);
   });
 
   it("rejects a malformed source override", async () => {

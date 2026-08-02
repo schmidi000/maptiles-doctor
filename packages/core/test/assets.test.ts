@@ -460,8 +460,9 @@ describe("glyph endpoints that cannot be checked", () => {
       allowNetwork: false
     });
 
-    expect(report.incompleteChecks.find((check) => check.id === "glyph.network-disabled")).
-      toMatchObject({ category: "glyph" });
+    expect(
+      report.incompleteChecks.find((check) => check.id === "glyph.network-disabled")
+    ).toMatchObject({ category: "glyph" });
     expect(report.findings.filter((finding) => finding.category === "glyph")).toEqual([]);
     expect(report.status).toBe("incomplete");
   });
@@ -478,9 +479,7 @@ describe("glyph endpoints that cannot be checked", () => {
     });
 
     expect(
-      report.incompleteChecks.find(
-        (check) => check.id === "glyph.Noto Sans Regular.check-failed"
-      )
+      report.incompleteChecks.find((check) => check.id === "glyph.Noto Sans Regular.check-failed")
     ).toMatchObject({ category: "glyph" });
     // The endpoint answered nothing, so nothing was proved about the font: an
     // unreachable artifact must never become a finding.

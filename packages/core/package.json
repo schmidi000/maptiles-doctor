@@ -1,13 +1,43 @@
 {
   "name": "@maptiles-doctor/core",
   "version": "0.1.0",
-  "description": "Core contract checker for MapTiles Doctor.",
+  "description": "Contract-checking engine behind MapTiles Doctor: reads a MapLibre/Mapbox style and the tile, glyph and sprite artifacts it depends on, and reports where they disagree.",
+  "keywords": [
+    "maplibre",
+    "mapbox",
+    "map-style",
+    "vector-tiles",
+    "pmtiles",
+    "mbtiles",
+    "tilejson",
+    "sprite",
+    "glyphs",
+    "validator"
+  ],
+  "homepage": "https://maptiles-doctor.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmidi000/maptiles-doctor.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/schmidi000/maptiles-doctor/issues"
+  },
+  "author": "schmidi000",
   "type": "module",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.18.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {

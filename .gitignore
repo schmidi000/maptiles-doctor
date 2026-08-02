@@ -2,7 +2,9 @@ node_modules/
 dist/
 # Built when a .vsix is packaged, unlike the action bundle it is not committed.
 packages/vscode/extension-dist/
-packages/vscode/LICENSE
+# One LICENSE lives at the root; `npm run license:sync` copies it into each
+# package so npm and vsce ship one, and the copies are generated, not committed.
+packages/*/LICENSE
 fixtures/generated/
 # Third-party styles and the reports made from them: they change without notice,
 # so committing them would turn a provider-side edit into a repo diff.

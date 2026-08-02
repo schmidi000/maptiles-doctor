@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "description": "MapTiles Doctor verifies MapLibre/Mapbox styles against actual tile, glyph, sprite, and sampled vector-tile contracts.",
+  "homepage": "https://maptiles-doctor.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmidi000/maptiles-doctor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/schmidi000/maptiles-doctor/issues"
+  },
+  "author": "schmidi000",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {
@@ -19,8 +28,10 @@
     "bundle:action": "node scripts/bundle-action.mjs",
     "bundle:action:check": "npm run bundle:action && git diff --exit-code -- packages/action/action-dist",
     "bundle:vscode": "node scripts/bundle-vscode.mjs",
-    "check": "npm-run-all2 audit typecheck lint test build package:check bundle:action:check",
+    "check": "npm-run-all2 audit typecheck lint format:check test build package:check bundle:action:check",
     "fixtures:build": "node scripts/build-fixtures.mjs",
+    "license:sync": "node scripts/sync-license.mjs",
+    "media:build": "node scripts/build-media.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

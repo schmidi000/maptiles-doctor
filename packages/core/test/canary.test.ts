@@ -132,7 +132,10 @@ describe("rewriteStyleForBrowser", () => {
       } as unknown as StyleSpecification,
       "/style",
       new Map([
-        ["empty", contract({ id: "empty", kind: "tilejson", location: "/data/t.json", tileUrls: [] })]
+        [
+          "empty",
+          contract({ id: "empty", kind: "tilejson", location: "/data/t.json", tileUrls: [] })
+        ]
       ])
     );
 
@@ -182,9 +185,7 @@ describe("rewriteStyleForBrowser", () => {
       new Map()
     );
 
-    expect(result.browserStyle.sprite).toEqual([
-      { id: "cdn", url: "https://cdn.example/sprite" }
-    ]);
+    expect(result.browserStyle.sprite).toEqual([{ id: "cdn", url: "https://cdn.example/sprite" }]);
   });
 
   it("absolutizes the tile templates of a source with no contract", () => {

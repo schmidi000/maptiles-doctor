@@ -228,9 +228,7 @@ describe("PMTiles timeouts", () => {
   });
 
   it("gives up on a remote archive that never answers", async () => {
-    await expect(
-      readSourceContract("basemap", `${origin}/basemap.pmtiles`, 300)
-    ).rejects.toThrow();
+    await expect(readSourceContract("basemap", `${origin}/basemap.pmtiles`, 300)).rejects.toThrow();
   }, 10_000);
 });
 

@@ -174,9 +174,12 @@ describe("remote reads", () => {
     // The distinction the whole report model rests on: an artifact that is
     // absent is a finding, one that could not be reached is an incomplete check.
     // Collapsing them would either invent breakage or hide it.
-    it.each(["/missing", "/empty"])("reports %s as absent rather than unreachable", async (path) => {
-      expect(await readRemoteBytes(`${origin}${path}`, 5_000)).toBeUndefined();
-    });
+    it.each(["/missing", "/empty"])(
+      "reports %s as absent rather than unreachable",
+      async (path) => {
+        expect(await readRemoteBytes(`${origin}${path}`, 5_000)).toBeUndefined();
+      }
+    );
 
     it("throws for a server error, which is unreachable rather than absent", async () => {
       await expect(readRemoteBytes(`${origin}/broken`, 5_000)).rejects.toThrow("HTTP 500");

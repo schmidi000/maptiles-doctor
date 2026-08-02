@@ -447,9 +447,9 @@ describe("overlapping checks", () => {
     const newer = fire("save", document);
     await Promise.all([older, newer]);
 
-    expect(
-      diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code)
-    ).toContain("source.basemap.network-disabled");
+    expect(diagnosticsFor(collection, document).map((diagnostic) => diagnostic.code)).toContain(
+      "source.basemap.network-disabled"
+    );
   });
 
   it("keeps the newer check's cached report when an older one finishes last", async () => {

@@ -2,14 +2,39 @@
   "name": "@maptiles-doctor/action",
   "version": "0.1.0",
   "description": "GitHub Action wrapper for MapTiles Doctor.",
+  "keywords": [
+    "github-action",
+    "maplibre",
+    "mapbox",
+    "vector-tiles",
+    "ci"
+  ],
+  "homepage": "https://maptiles-doctor.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmidi000/maptiles-doctor.git",
+    "directory": "packages/action"
+  },
+  "bugs": {
+    "url": "https://github.com/schmidi000/maptiles-doctor/issues"
+  },
+  "author": "schmidi000",
   "type": "module",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.18.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "action-dist",
-    "action.yml"
+    "action.yml",
+    "README.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {

@@ -403,7 +403,11 @@ describe("filterInputs", () => {
   });
 
   it("reads the bare property name of a legacy filter", () => {
-    const { properties, evaluable } = filterInputs(["all", ["==", "class", "airport"], ["has", "rank"]]);
+    const { properties, evaluable } = filterInputs([
+      "all",
+      ["==", "class", "airport"],
+      ["has", "rank"]
+    ]);
 
     expect([...properties].sort()).toEqual(["class", "rank"]);
     expect(evaluable).toBe(true);

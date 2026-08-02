@@ -1,13 +1,39 @@
 {
   "name": "@maptiles-doctor/report",
   "version": "0.1.0",
-  "description": "Report renderers for MapTiles Doctor.",
+  "description": "Static HTML and SARIF renderers for MapTiles Doctor reports.",
+  "keywords": [
+    "maplibre",
+    "mapbox",
+    "sarif",
+    "report",
+    "html-report",
+    "vector-tiles"
+  ],
+  "homepage": "https://maptiles-doctor.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmidi000/maptiles-doctor.git",
+    "directory": "packages/report"
+  },
+  "bugs": {
+    "url": "https://github.com/schmidi000/maptiles-doctor/issues"
+  },
+  "author": "schmidi000",
   "type": "module",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.18.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {

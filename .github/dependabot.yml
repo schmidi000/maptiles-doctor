@@ -1,0 +1,33 @@
+version: 2
+
+# The dependency policy is exact pins at the newest stable patched version, so
+# every upgrade has to arrive as a commit. These are those commits.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      # One PR for the routine noise, so the queue stays readable and a major
+      # bump that needs a real look is not buried among patch bumps.
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      production-patches:
+        dependency-type: production
+        update-types:
+          - patch
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci

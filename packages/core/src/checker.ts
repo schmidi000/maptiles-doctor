@@ -161,8 +161,7 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
   const valueProperties = new Set(nameProperties);
   for (const template of usage.iconTemplates) {
     const layer = layers.find((candidate) => candidate.id === template.layerId) as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     for (const property of filterInputs(layer?.filter).properties) {
       valueProperties.add(property);
     }
@@ -239,7 +238,12 @@ export async function checkStyleContract(options: DoctorCheckOptions): Promise<D
   // check that said `passed`.
   checks.push({
     id: "style-spec",
-    status: categoryStatus(checkCategories["style-spec"], findings, incompleteChecks, failThreshold),
+    status: categoryStatus(
+      checkCategories["style-spec"],
+      findings,
+      incompleteChecks,
+      failThreshold
+    ),
     message:
       styleErrors.length === 0
         ? "Style specification is valid."
@@ -562,7 +566,12 @@ function canaryStatus(
   ) {
     return "incomplete";
   }
-  return categoryStatus(checkCategories["visual-canary"], findings, incompleteChecks, failThreshold);
+  return categoryStatus(
+    checkCategories["visual-canary"],
+    findings,
+    incompleteChecks,
+    failThreshold
+  );
 }
 
 /**
@@ -597,8 +606,7 @@ function categoryStatus(
   if (
     findings.some(
       (finding) =>
-        owned.has(finding.category) &&
-        severityRank[finding.severity] >= severityRank[failThreshold]
+        owned.has(finding.category) && severityRank[finding.severity] >= severityRank[failThreshold]
     )
   ) {
     return "failed";
@@ -1104,7 +1112,10 @@ function layerReachability(
 
   let compiled: FeatureFilter;
   try {
-    compiled = featureFilter(layer.filter as FilterSpecification, `layers.${String(layer.id)}.filter`);
+    compiled = featureFilter(
+      layer.filter as FilterSpecification,
+      `layers.${String(layer.id)}.filter`
+    );
   } catch {
     return undefined;
   }

@@ -1,0 +1,41 @@
+name: Feature request
+description: A check, a flag, or an integration that does not exist yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What map broke, or nearly broke?
+      description: |
+        The concrete failure this would have caught, or the workflow it would
+        have unblocked. Proposals grounded in a real map are much easier to
+        judge than abstract ones.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: evidence
+    attributes:
+      label: If this is a new check, what evidence would it rest on?
+      description: |
+        Severity here reflects how strong the evidence is. A finding that only a
+        partial tile sample supports can never be `broken`.
+      options:
+        - An artifact was read and proves the mismatch — could be `broken`
+        - Metadata points at it but does not close it — `risky`
+        - Only a partial sample suggests it — `info`
+        - Not a new check
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you tried instead?

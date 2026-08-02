@@ -4,12 +4,21 @@ name: Documentation
 # behaves. It is plain HTML with no build step, so a deploy cannot break on a
 # generator upgrade.
 #
-# Deliberately manual. This repository is private and the documentation is not
-# meant to be public yet, and a GitHub Pages site is world-readable except on
-# Enterprise Cloud with access control. There is no push trigger, so enabling
-# Pages later cannot start publishing on its own: someone has to run this
-# workflow on purpose. Open `site/index.html` in a browser to read it locally.
+# It deploys on a push to `main` that touches the site, so the published page
+# can never lag behind the behaviour it documents. `workflow_dispatch` is kept
+# for redeploying without a change. The file is also readable straight from a
+# checkout: open `site/index.html` in a browser.
+#
+# `site/CNAME` is what binds the deploy to maptiles-doctor.com. It has to live
+# in the uploaded directory: GitHub rewrites the repository's Pages domain
+# setting from the deployed artifact, so a deploy without it silently reverts
+# the custom domain to the github.io address.
 on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - .github/workflows/pages.yml
   workflow_dispatch:
 
 permissions:

@@ -138,9 +138,7 @@ describe("formatGithubAnnotations", () => {
   it("escapes the characters that would break a workflow command", () => {
     const output = formatGithubAnnotations(
       report({
-        findings: [
-          finding({ severity: "broken", message: "line one\r\nline two 100% broken" })
-        ]
+        findings: [finding({ severity: "broken", message: "line one\r\nline two 100% broken" })]
       })
     );
 

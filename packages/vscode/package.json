@@ -14,11 +14,16 @@
     "mbtiles",
     "vector tiles"
   ],
+  "homepage": "https://maptiles-doctor.com/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/schmidi000/maptiles-doctor.git",
     "directory": "packages/vscode"
   },
+  "bugs": {
+    "url": "https://github.com/schmidi000/maptiles-doctor/issues"
+  },
+  "author": "schmidi000",
   "type": "module",
   "license": "Apache-2.0",
   "main": "./extension-dist/extension.cjs",

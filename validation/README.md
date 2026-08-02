@@ -78,12 +78,12 @@ that, the data-driven icon seed scored a pass off the static icon check.
 Unlike `validate:real`, this one exits on its verdict — a gate that printed
 `NOT MET` and exited 0 either way was not a gate:
 
-| Exit | Verdict              | Meaning                                                        |
-| ---- | -------------------- | -------------------------------------------------------------- |
-| 0    | MET                  | 8 or more of the applicable mutations were caught.               |
-| 1    | NOT MET              | The checker missed too many. A detection regression.             |
-| 3    | CANNOT BE EVALUATED  | Fewer than 8 mutations are expressible against this style.       |
-| 2    | —                    | Prerequisite missing: no built CLI, or no cached style.          |
+| Exit | Verdict             | Meaning                                                    |
+| ---- | ------------------- | ---------------------------------------------------------- |
+| 0    | MET                 | 8 or more of the applicable mutations were caught.         |
+| 1    | NOT MET             | The checker missed too many. A detection regression.       |
+| 3    | CANNOT BE EVALUATED | Fewer than 8 mutations are expressible against this style. |
+| 2    | —                   | Prerequisite missing: no built CLI, or no cached style.    |
 
 Exit 3 is deliberately not folded into exit 1. Nothing was proven about
 detection, which is not the same answer as "the checker missed too many", and a

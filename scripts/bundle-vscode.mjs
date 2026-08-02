@@ -2,10 +2,10 @@
 // host loads an extension by `main` with no npm install of workspace packages,
 // so the entrypoint has to carry core and report with it. Unlike the action
 // bundle this output is not committed: it is rebuilt when a .vsix is packaged.
-import { copyFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { syncLicense } from "./sync-license.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const vscodeBundle = resolve(root, "packages/vscode/extension-dist/extension.cjs");
@@ -13,7 +13,7 @@ export const vscodeBundle = resolve(root, "packages/vscode/extension-dist/extens
 export async function bundleVscode() {
   // vsce refuses to package an extension without a license file, and the
   // repository keeps a single copy at the root.
-  await copyFile(resolve(root, "LICENSE"), resolve(root, "packages/vscode/LICENSE"));
+  await syncLicense();
 
   await build({
     entryPoints: [resolve(root, "packages/vscode/src/extension.ts")],

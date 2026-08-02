@@ -1,0 +1,92 @@
+name: Bug report
+description: Something the checker got wrong, or a crash.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report suspected security vulnerabilities here — see
+        [SECURITY.md](https://github.com/schmidi000/maptiles-doctor/blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of bug is it?
+      options:
+        - False positive — a finding on a map that renders correctly
+        - Missed break — a real contract break the checker did not report
+        - Wrong severity, or an incomplete check that should be a finding
+        - Crash, or an unhandled error
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you hit it?
+      options:
+        - CLI
+        - GitHub Action
+        - VS Code extension
+        - Programmatic use of @maptiles-doctor/core
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `maptiles-doctor --version`, or the version you have installed.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: v24.18.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: How you ran it
+      description: The exact command, workflow step, or settings.
+      render: shell
+      placeholder: maptiles-doctor check style.json --source basemap=world.pmtiles
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened
+      description: |
+        For a false positive, say why the map is correct — what the tileset
+        really contains. For a missed break, say what is actually wrong with the
+        map. That difference is what makes the report actionable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Report output
+      description: |
+        The finding, or the whole report from `--format json`. Redact anything
+        private — signed URLs and API keys often live in a style's source
+        locations.
+      render: json
+
+  - type: textarea
+    id: style
+    attributes:
+      label: A style that reproduces it
+      description: |
+        The smallest style that shows the problem, if you can share one. A
+        public tileset URL that reproduces it is just as useful.
+      render: json

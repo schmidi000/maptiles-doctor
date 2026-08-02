@@ -265,7 +265,6 @@ What did **not** change:
 <!-- Liberty's row is what this change did at the time; layer-filter evaluation
      later took the 62 to 21. -->
 
-
 Seeded detection is unchanged at 9/9 and 7/7: severity does not affect whether a
 break is noticed, only how loudly it is reported.
 
@@ -340,11 +339,11 @@ The checker now evaluates each layer's filter against the sampled feature that
 produced a name, and refuses to guess: a filter needing real geometry or feature
 state makes the check incomplete rather than reported either way.
 
-| Layer set             | Before | After |
-| --------------------- | ------ | ----- |
+| Layer set                 | Before       | After      |
+| ------------------------- | ------------ | ---------- |
 | poi_r20 / poi_r7 / poi_r1 | 14 / 14 / 14 | 14 / 6 / 1 |
-| poi_transit           | 14     | 0     |
-| three shield layers   | 2 each | 0     |
+| poi_transit               | 14           | 0          |
+| three shield layers       | 2 each       | 0          |
 
 Retention is now budgeted per candidate name rather than across all combinations.
 A flat cap of 200 was fine until filter inputs joined the sample: crossing `class`

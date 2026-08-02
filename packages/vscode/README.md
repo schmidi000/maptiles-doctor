@@ -9,6 +9,10 @@ zoom, glyph, sprite, icon, or data-property assumptions no longer match the
 tileset. This extension runs the same engine as the `maptiles-doctor` CLI and
 GitHub Action, against the buffer in the editor rather than the file on disk.
 
+📖 [Documentation](https://maptiles-doctor.com/) ·
+[Repository](https://github.com/schmidi000/maptiles-doctor) ·
+[Report an issue](https://github.com/schmidi000/maptiles-doctor/issues)
+
 ## Features
 
 - Diagnostics on open and on save for any JSON file that looks like a style
@@ -52,3 +56,8 @@ be checked:
   those sources report an incomplete check instead of passing.
 - Sampling reads a few tiles per source, so a property missing from the sample
   is reported as risky or informational, never as a broken contract.
+- Visual canaries are a CLI feature and do not run in the editor.
+
+## License
+
+Apache-2.0

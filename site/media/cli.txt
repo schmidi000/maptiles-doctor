@@ -1,0 +1,16 @@
+$ maptiles-doctor check fixtures/broken-style/style.json --source openmaptiles=fixtures/simple-style/tilejson.json
+✖ MapTiles Doctor: failed
+Broken 2, risky 1, warnings 0, incomplete 0
+broken Layer 3d-buildings references missing source-layer building. Suggestion: buildings.
+broken Icon cafe is referenced by the style but missing from the sprite index.
+risky Layer cafes references property missing_name, but it is not declared in source-layer poi metadata.
+
+$ maptiles-doctor check fixtures/data-driven-icon/style.json --source openmaptiles=fixtures/simple-style/tilejson.json
+! MapTiles Doctor: incomplete
+Broken 0, risky 3, warnings 0, incomplete 3
+risky Layer poi-concat builds its icon name from class; sampled features produce icon-bar, which is missing from the sprite index. Suggestion: icon-cafe.
+risky Layer poi-token builds its icon name from class; sampled features produce icon-bar, which is missing from the sprite index. Suggestion: icon-cafe.
+risky Layer poi-unknown-property references property brand, but it is not declared in source-layer poi metadata.
+incomplete Layer poi-unknown-property builds its icon name from brand, and no sampled feature that its filter admits carried every one of those properties, so the icons it renders could not be checked.
+incomplete Layer poi-filtered-geometry builds its icon name from class, and no sampled feature that its filter admits carried every one of those properties, so the icons it renders could not be checked.
+incomplete Layer poi-filter-unevaluable builds its icon name from class, but its filter cannot be decided from a sampled feature, so which icons it renders could not be checked.

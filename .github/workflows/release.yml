@@ -1,0 +1,106 @@
+name: Release
+
+# Publishes the npm packages for a version tag. The tag is the trigger, so a
+# release is a deliberate act: nothing publishes on a push to main.
+#
+# Cutting a release:
+#   1. Bump every package to the same version and update CHANGELOG.md.
+#   2. Commit, tag `vX.Y.Z`, push the tag.
+#
+# See RELEASING.md.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Run every check and pack the tarballs without publishing.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      # Required for npm provenance: npm exchanges this token for a signed
+      # attestation tying the published tarball to this workflow run.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24.18.1
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      # Visual canaries skip themselves when no browser can be launched, so the
+      # runner needs Chromium for the full gate to actually exercise them.
+      - run: npx playwright install --with-deps chromium
+
+      # The same gate CI runs. A release that skips it is a release nobody
+      # checked: audit, typecheck, lint, tests, build, package validation, and a
+      # staleness check on the committed Action bundle.
+      - run: npm run check
+
+      - name: Check the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for manifest in packages/*/package.json; do
+            version="$(jq -r .version "$manifest")"
+            if [ "$version" != "$tag" ]; then
+              echo "::error::$manifest is $version but the tag is $tag" >&2
+              exit 1
+            fi
+          done
+
+      # npm only ships a license file that sits inside the package directory,
+      # and the repository keeps a single copy at the root.
+      - run: npm run license:sync
+
+      # Publish order follows the dependency graph: core and report are pinned
+      # exactly by the CLI and the action, so they have to exist on the registry
+      # first or the dependents install against a version that is not there yet.
+      #
+      # `NODE_AUTH_TOKEN` goes away once every package exists on the registry and
+      # a trusted publisher is registered against it: npm authenticates over the
+      # same OIDC token the provenance attestation already uses. It cannot be set
+      # up before the first publish, because the configuration lives on a package
+      # that does not exist yet. See RELEASING.md.
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for package in @maptiles-doctor/core @maptiles-doctor/report maptiles-doctor @maptiles-doctor/action; do
+            npm publish --workspace "$package" --provenance --access public
+          done
+
+      - name: Pack the tarballs instead
+        if: ${{ inputs.dry-run }}
+        run: npm pack --workspaces --pack-destination "${RUNNER_TEMP}"
+
+      # Consumers of the Action pin `@v0`. Moving it here keeps that reference
+      # on the released commit; the exact `vX.Y.Z` tag stays available for
+      # anyone who would rather pin.
+      - name: Move the major version tag for the Action
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry-run }}
+        run: |
+          major="$(echo "${GITHUB_REF_NAME#v}" | cut -d. -f1)"
+          git tag -f "v${major}" "${GITHUB_REF_NAME}"
+          git push origin -f "refs/tags/v${major}"
+
+      - name: Create the GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --generate-notes --verify-tag
