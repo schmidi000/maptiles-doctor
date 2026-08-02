@@ -43,7 +43,12 @@ export async function run(argv = process.argv): Promise<number> {
       collectSource,
       []
     )
-    .option("-f, --format <format>", "Output format: pretty, json, sarif, github, html", "pretty")
+    .option(
+      "-f, --format <format>",
+      "Output format: pretty, json, sarif, github, html",
+      parseFormat,
+      "pretty"
+    )
     .option("-o, --output <path>", "Write the rendered report to a file instead of stdout")
     .option(
       "--fail-threshold <severity>",
@@ -262,6 +267,25 @@ function parseRatio(value: string): number {
     throw new InvalidArgumentError("Expected a ratio between 0 and 1");
   }
   return parsed;
+}
+
+const formats = ["pretty", "json", "sarif", "github", "html"] as const;
+
+/**
+ * Validated while parsing, not while rendering.
+ *
+ * An unknown format used to be caught by `renderReport`, which runs inside the
+ * action handler — after the whole check had already been performed. Commander
+ * only prints the errors it raises itself, so throwing there exited 2 with no
+ * message at all: a typo in `--format` looked like a silent crash. Rejecting it
+ * here means commander prints the reason and lists the alternatives, and the
+ * run stops before doing work it is going to throw away.
+ */
+function parseFormat(value: string): string {
+  if ((formats as readonly string[]).includes(value)) {
+    return value;
+  }
+  throw new InvalidArgumentError(`Expected format: ${formats.join(", ")}`);
 }
 
 function renderReport(

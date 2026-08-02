@@ -497,6 +497,21 @@ describe("CLI", () => {
     expect(stdout).not.toContain("::warning title=expression-property::");
   });
 
+  // An unknown format used to be rejected by the renderer, inside the action
+  // handler, which exited 2 without printing anything: a typo in --format was
+  // indistinguishable from a silent crash, and only after the whole check had
+  // run.
+  it("rejects an unknown --format with a message naming the alternatives", async () => {
+    const stderr = captureStderr();
+    try {
+      const { code } = await check([passingStyle, "--format", "yaml"]);
+      expect(code).toBe(2);
+      expect(stderr.text()).toContain("Expected format: pretty, json, sarif, github, html");
+    } finally {
+      stderr.restore();
+    }
+  });
+
   // npm installs a `bin` as a symlink, so the entrypoint check runs against a
   // path that is not the module's own. Getting this wrong published a CLI that
   // printed nothing and exited 0 on every invocation, while every test here and

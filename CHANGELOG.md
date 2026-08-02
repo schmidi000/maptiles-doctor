@@ -10,6 +10,12 @@ Report schema v1 is a consumer contract and is exempt: it will not break within
 
 ## [Unreleased]
 
+### Fixed
+
+- An unknown `--format` exited 2 without printing anything, and only after the
+  whole check had run. It is rejected while parsing now, so commander prints the
+  reason and lists the valid formats.
+
 ## [0.1.1] — 2026-08-02
 
 Fixes a release that could not be used. **Do not install 0.1.0.**
