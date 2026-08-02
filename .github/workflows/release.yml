@@ -1,11 +1,16 @@
 name: Release
 
-# Publishes the npm packages for a version tag. The tag is the trigger, so a
-# release is a deliberate act: nothing publishes on a push to main.
+# Publishes the npm packages, tags the commit, and opens the GitHub release.
 #
-# Cutting a release:
-#   1. Bump every package to the same version and update CHANGELOG.md.
-#   2. Commit, tag `vX.Y.Z`, push the tag.
+# The package manifests are the source of truth for the version. Bump them and
+# CHANGELOG.md in a pull request, merge it, then run this workflow from the
+# Actions tab — it derives the version from the manifests, refuses to run if the
+# packages disagree with each other or if that version was already released, and
+# creates the tag itself. Nothing has to be pushed by hand.
+#
+# Pushing a `vX.Y.Z` tag also triggers it, for anyone who would rather tag
+# locally. Either way the tag ends up on the released commit, so a published
+# version always corresponds to a commit that can be checked out.
 #
 # See RELEASING.md.
 on:
@@ -15,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: Run every check and pack the tarballs without publishing.
+        description: Run every check and pack the tarballs without publishing or tagging.
         type: boolean
         default: true
 
@@ -40,6 +45,42 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Resolves the version and refuses anything ambiguous. The packages are
+      # published as a set at one version, so a manifest that disagrees with its
+      # siblings is a half-finished bump, not a release. Run on both triggers:
+      # a hand-pushed tag can disagree with the manifests just as easily.
+      - name: Resolve the release version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            echo "Version ${version} comes from the pushed tag."
+          else
+            version="$(jq -r .version packages/cli/package.json)"
+            echo "Version ${version} comes from the package manifests."
+          fi
+
+          for manifest in packages/*/package.json; do
+            declared="$(jq -r .version "$manifest")"
+            if [ "$declared" != "$version" ]; then
+              echo "::error::$manifest is $declared but this release is $version" >&2
+              exit 1
+            fi
+          done
+
+          # Republishing is impossible — npm never lets a version number be
+          # reused — so an already-released version is a mistake worth catching
+          # before the gate spends ten minutes proving it.
+          if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null 2>&1 &&
+             [ "${GITHUB_REF_TYPE}" != tag ]; then
+            echo "::error::v${version} is already tagged. Bump the manifests first." >&2
+            exit 1
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+          echo "major=v$(echo "${version}" | cut -d. -f1)" >> "$GITHUB_OUTPUT"
+
       - run: npm ci
 
       # Visual canaries skip themselves when no browser can be launched, so the
@@ -47,25 +88,19 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       # The same gate CI runs. A release that skips it is a release nobody
-      # checked: audit, typecheck, lint, tests, build, package validation, and a
-      # staleness check on the committed Action bundle.
+      # checked: audit, typecheck, lint, format, tests, build, package
+      # validation, and a staleness check on the committed Action bundle.
       - run: npm run check
-
-      - name: Check the tag matches the package version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          for manifest in packages/*/package.json; do
-            version="$(jq -r .version "$manifest")"
-            if [ "$version" != "$tag" ]; then
-              echo "::error::$manifest is $version but the tag is $tag" >&2
-              exit 1
-            fi
-          done
 
       # npm only ships a license file that sits inside the package directory,
       # and the repository keeps a single copy at the root.
       - run: npm run license:sync
+
+      - name: Pack the tarballs without publishing
+        if: ${{ inputs.dry-run }}
+        run: |
+          npm pack --workspaces --pack-destination "${RUNNER_TEMP}"
+          echo "Dry run: ${{ steps.version.outputs.tag }} was not published or tagged."
 
       # Publish order follows the dependency graph: core and report are pinned
       # exactly by the CLI and the action, so they have to exist on the registry
@@ -85,22 +120,28 @@ jobs:
             npm publish --workspace "$package" --provenance --access public
           done
 
-      - name: Pack the tarballs instead
-        if: ${{ inputs.dry-run }}
-        run: npm pack --workspaces --pack-destination "${RUNNER_TEMP}"
-
-      # Consumers of the Action pin `@v0`. Moving it here keeps that reference
-      # on the released commit; the exact `vX.Y.Z` tag stays available for
-      # anyone who would rather pin.
-      - name: Move the major version tag for the Action
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry-run }}
+      # Tagged after the publish, not before: a tag pointing at a version that
+      # never reached the registry is worse than no tag. Consumers of the Action
+      # pin `@v0`, so the major tag moves onto the released commit too, and the
+      # exact `vX.Y.Z` stays available for anyone who would rather pin.
+      - name: Tag the release
+        if: ${{ !inputs.dry-run }}
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          MAJOR: ${{ steps.version.outputs.major }}
         run: |
-          major="$(echo "${GITHUB_REF_NAME#v}" | cut -d. -f1)"
-          git tag -f "v${major}" "${GITHUB_REF_NAME}"
-          git push origin -f "refs/tags/v${major}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "${GITHUB_REF_TYPE}" != tag ]; then
+            git tag "$TAG"
+            git push origin "refs/tags/${TAG}"
+          fi
+          git tag -f "$MAJOR" "$TAG"
+          git push origin -f "refs/tags/${MAJOR}"
 
       - name: Create the GitHub release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry-run }}
+        if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --generate-notes --verify-tag

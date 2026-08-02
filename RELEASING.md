@@ -16,25 +16,37 @@ triggers a release; nothing publishes on a push to `main`.
 
 ## Cutting a release
 
-1. Make sure `main` is green and `npm run check` passes locally.
-2. Bump the version in every `packages/*/package.json` to the same value.
-3. Move the `Unreleased` entries in `CHANGELOG.md` under the new version and
+The package manifests are the source of truth for the version. Nothing has to be
+pushed by hand.
+
+1. Bump the version in every `packages/*/package.json` to the same value.
+2. Move the `Unreleased` entries in `CHANGELOG.md` under the new version and
    date, and add the compare links at the bottom.
-4. Commit: `chore(release): vX.Y.Z`.
-5. Tag and push:
+3. Merge that as `chore(release): vX.Y.Z`, and wait for `main` to go green.
+4. Actions → **Release** → Run workflow, with `dry-run` ticked. The whole gate
+   runs and the tarballs are packed, but nothing is published or tagged.
+5. Run it again with `dry-run` unticked.
 
-   ```bash
-   git tag vX.Y.Z
-   git push origin main --follow-tags
-   ```
+The workflow derives the version from the manifests, refuses to run if the
+packages disagree with each other or if that version is already tagged, runs
+`npm run check`, publishes in dependency order with provenance, tags the commit
+`vX.Y.Z`, moves the major-version tag for Action consumers, and opens the GitHub
+release.
 
-The `Release` workflow then runs `npm run check`, verifies the tag matches the
-package versions, publishes the npm packages in dependency order with
-provenance, moves the major-version tag for Action consumers, and opens the
-GitHub release.
+The dry run is worth the extra click. A version can only be published once — npm
+never lets a version number be reused — so the cheapest place to find a problem
+is before the publish step, not after.
 
-To rehearse without publishing, run the workflow manually with `dry-run` left at
-its default: it runs the whole gate and packs the tarballs instead.
+Pushing a `vX.Y.Z` tag by hand triggers the same workflow, if you would rather
+tag locally:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Either route ends with the tag on the released commit, so a version on npm always
+corresponds to a commit that can be checked out.
 
 ## Prerequisites, once
 
