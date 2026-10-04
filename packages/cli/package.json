@@ -59,7 +59,7 @@
   "dependencies": {
     "@maptiles-doctor/core": "0.1.1",
     "@maptiles-doctor/report": "0.1.1",
-    "chalk": "6.0.0",
+    "chalk": "6.0.1",
     "commander": "15.0.0",
     "zod": "4.4.3"
   }
